@@ -155,16 +155,11 @@ function init() {
 
 function renderNav() {
   const nav = document.getElementById("nav");
-  const groups = [...new Set(VIEWS.map((v) => v.group))];
-  nav.innerHTML = groups.map((g) => `
-    <div class="nav-group">
-      <div class="nav-group-label">${esc(g)}</div>
-      ${VIEWS.filter((v) => v.group === g).map((v) => `
-        <button class="nav-item ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
-          <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
-        </button>`).join("")}
-    </div>`).join("");
-  nav.querySelectorAll(".nav-item").forEach((btn) => {
+  nav.innerHTML = VIEWS.map((v) => `
+    <button class="tab ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
+      <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
+    </button>`).join("");
+  nav.querySelectorAll(".tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       currentView = btn.dataset.view;
       currentQuiz = [];
@@ -176,7 +171,7 @@ function renderNav() {
 
 function renderDomainSwitch() {
   const box = document.getElementById("domainSwitch");
-  box.innerHTML = "<h3>学习领域</h3><div class='domain-seg'>" + DOMAINS.map(
+  box.innerHTML = "<div class='domain-seg'>" + DOMAINS.map(
     (d) => `<button class="domain-btn ${d.id === state.domain ? "active" : ""}" data-domain="${d.id}">${esc(d.name)}</button>`
   ).join("") + "</div>";
   box.querySelectorAll(".domain-btn").forEach((btn) => {
@@ -192,6 +187,14 @@ function renderDomainSwitch() {
 }
 
 function bindToolbar() {
+  document.getElementById("dataBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("menuPop").classList.toggle("show");
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".data-menu")) document.getElementById("menuPop").classList.remove("show");
+  });
+  document.querySelectorAll("#menuPop button").forEach((b) => b.addEventListener("click", () => document.getElementById("menuPop").classList.remove("show")));
   document.getElementById("exportBtn").addEventListener("click", exportProgress);
   document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
   document.getElementById("importFile").addEventListener("change", importProgress);
@@ -237,8 +240,6 @@ function importProgress(ev) {
 
 function render() {
   const view = VIEWS.find((v) => v.id === currentView);
-  document.getElementById("viewTitle").textContent = `${domain().name} · ${view.name}`;
-  document.getElementById("viewDesc").textContent = view.desc;
   const s = stats();
   const pct = s.total ? Math.round((s.mastered / s.total) * 100) : 0;
   document.getElementById("topProgress").innerHTML = `<span>${s.mastered}/${s.total} 已掌握</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`;

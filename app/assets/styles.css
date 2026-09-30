@@ -16,38 +16,39 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; }
-.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.app { min-height: 100vh; }
 
-/* Sidebar */
-.sidebar { background: #10201f; color: #e6fffa; display: flex; flex-direction: column; padding: 16px 12px; gap: 16px; }
-.brand { display: flex; gap: 10px; align-items: center; padding: 4px; }
-.brand-mark { width: 36px; height: 36px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
-.brand-name { font-weight: 600; font-size: 14px; }
-.brand-sub { font-size: 11px; color: #94b8b3; margin-top: 2px; }
-.nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-group { margin-bottom: 10px; }
-.nav-group-label { font-size: 10.5px; color: #6f938e; padding: 4px 10px 6px; letter-spacing: .06em; }
-.nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 6px; color: #c9ded9; cursor: pointer; border: none; background: none; text-align: left; font-size: 13px; width: 100%; transition: background .15s, color .15s; }
-.nav-item:hover { background: rgba(255,255,255,.08); color: #fff; }
-.nav-item.active { background: var(--accent); color: #fff; font-weight: 600; }
+/* Topbar */
+.topbar { position: sticky; top: 0; z-index: 50; background: #10201f; }
+.topbar-main { display: flex; align-items: center; gap: 18px; padding: 12px 28px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.brand { display: flex; gap: 10px; align-items: center; }
+.brand-mark { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+.brand-name { font-weight: 600; font-size: 15px; color: #fff; white-space: nowrap; }
 .nav-icon { width: 16px; height: 16px; display: inline-flex; flex-shrink: 0; }
 .nav-icon svg { width: 16px; height: 16px; }
-.domain-switch { border-top: 1px solid rgba(255,255,255,.15); padding-top: 14px; }
-.domain-switch h3 { font-size: 11px; color: #94b8b3; margin-bottom: 8px; font-weight: 600; letter-spacing: .04em; }
+.domain-switch { margin-left: 8px; }
 .domain-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: rgba(255,255,255,.06); padding: 4px; border-radius: 8px; }
 .domain-btn { display: flex; width: 100%; padding: 8px 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #c9ded9; cursor: pointer; font-size: 12.5px; align-items: center; justify-content: center; gap: 6px; transition: all .15s; }
 .domain-btn:hover { color: #fff; }
 .domain-btn.active { background: rgba(20,184,166,.25); border-color: #2dd4bf; color: #fff; font-weight: 600; }
-.sidebar-footer { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.top-progress { margin-left: auto; min-width: 200px; max-width: 280px; text-align: right; }
+.top-progress span { font-size: 12px; color: #94b8b3; display: block; margin-bottom: 6px; }
+.icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); background: transparent; color: #c9ded9; cursor: pointer; font-size: 16px; letter-spacing: .08em; }
+.icon-btn:hover { color: #fff; border-color: #2dd4bf; }
+.data-menu { position: relative; }
+.menu-pop { position: absolute; right: 0; top: 42px; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.18); display: none; flex-direction: column; min-width: 150px; overflow: hidden; z-index: 60; }
+.menu-pop.show { display: flex; }
+.menu-pop button { border: none; background: none; padding: 10px 14px; font-size: 13px; text-align: left; cursor: pointer; color: var(--ink); }
+.menu-pop button:hover { background: #f1f5f9; }
+.menu-pop button.danger { color: var(--red); }
+.tabs { display: flex; gap: 4px; padding: 0 28px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border: none; border-bottom: 2px solid transparent; background: none; color: #9fc2bd; cursor: pointer; font-size: 13.5px; white-space: nowrap; transition: color .15s; }
+.tab:hover { color: #fff; }
+.tab.active { color: #2dd4bf; border-bottom-color: #2dd4bf; font-weight: 600; }
 
 /* Main */
-.main { padding: 24px 28px 48px; max-width: 1200px; }
-.topbar { margin-bottom: 20px; }
-.topbar-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.topbar h1 { font-size: 22px; font-weight: 700; }
-.topbar p { color: var(--muted); margin-top: 4px; font-size: 13px; }
-.top-progress { min-width: 180px; max-width: 260px; text-align: right; }
-.top-progress span { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+.main { padding: 24px 28px 48px; max-width: 1280px; }
 
 /* Cards & layout */
 .grid { display: grid; gap: 14px; }
@@ -158,16 +159,12 @@ select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; fo
 #glossarySearch { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .nav { flex-direction: row; flex-wrap: wrap; }
-  .domain-switch { border-top: none; padding-top: 0; display: flex; gap: 6px; align-items: center; }
-  .domain-switch h3 { display: none; }
-  .domain-seg { display: flex; }
-  .domain-btn { width: auto; }
-  .topbar-row { flex-direction: column; gap: 8px; }
-  .top-progress { text-align: left; max-width: none; width: 100%; }
-  .sidebar-footer { margin-top: 0; margin-left: auto; }
+  .topbar-main { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  .brand-name { font-size: 13px; }
+  .domain-switch { margin-left: 0; }
+  .domain-btn { padding: 7px 10px; }
+  .top-progress { display: none; }
+  .tabs { padding: 0 14px; }
   .main { padding: 18px 16px 40px; }
   .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; }
 }

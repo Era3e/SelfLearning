@@ -8,36 +8,30 @@
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">LX</div>
-      <div>
-        <div class="brand-name">自迭代学习系统</div>
-        <div class="brand-sub">产品经理技术学习闭环</div>
+  <header class="topbar">
+    <div class="topbar-main">
+      <div class="brand">
+        <div class="brand-mark">LX</div>
+        <span class="brand-name">自迭代学习系统</span>
       </div>
-    </div>
-    <nav class="nav" id="nav"></nav>
-    <div class="domain-switch" id="domainSwitch"></div>
-    <div class="sidebar-footer">
-      <button class="btn ghost small" id="exportBtn">导出进度</button>
-      <button class="btn ghost small" id="importBtn">导入进度</button>
-      <input type="file" id="importFile" accept=".json" hidden>
-      <button class="btn danger small" id="resetBtn">重置当前领域</button>
-    </div>
-  </aside>
-  <main class="main">
-    <header class="topbar">
-      <div class="topbar-row">
-        <div>
-          <h1 id="viewTitle"></h1>
-          <p id="viewDesc"></p>
+      <div class="domain-switch" id="domainSwitch"></div>
+      <div class="top-progress" id="topProgress"></div>
+      <div class="data-menu" id="dataMenu">
+        <button class="icon-btn" id="dataBtn" title="学习数据">···</button>
+        <div class="menu-pop" id="menuPop">
+          <button id="exportBtn">导出进度</button>
+          <button id="importBtn">导入进度</button>
+          <button id="resetBtn" class="danger">重置当前领域</button>
         </div>
-        <div class="top-progress" id="topProgress"></div>
       </div>
-    </header>
+    </div>
+    <nav class="tabs" id="nav"></nav>
+  </header>
+  <main class="main">
     <section class="content" id="content"></section>
   </main>
 </div>
+<input type="file" id="importFile" accept=".json" hidden>
 <div class="toast" id="toast"></div>
 <script src="assets/data-ai.js"></script>
 <script src="assets/data-robotics.js"></script>
