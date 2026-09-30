@@ -177,7 +177,7 @@ function renderNav() {
 function renderDomainSwitch() {
   const box = document.getElementById("domainSwitch");
   box.innerHTML = "<h3>学习领域</h3><div class='domain-seg'>" + DOMAINS.map(
-    (d) => `<button class="domain-btn ${d.id === state.domain ? "active" : ""}" data-domain="${d.id}">${esc(d.name)}</button>`
+    (d) => `<button class="domain-btn ${d.id === state.domain ? "active" : ""}" data-domain="${d.id}" title="${esc(d.name)}"><span class="d-full">${esc(d.name)}</span><span class="d-short">${d.id === "ai" ? "AI" : "RB"}</span></button>`
   ).join("") + "</div>";
   box.querySelectorAll(".domain-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
