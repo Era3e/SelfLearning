@@ -2,16 +2,28 @@
 
 const STORE_KEY = "pm-learning-system-v1";
 const DOMAINS = [AI_DOMAIN, ROBOTICS_DOMAIN];
+const ICONS = {
+  overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>',
+  modules: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+  glossary: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  quiz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  review: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  interviews: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+  iterate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
+  jd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+};
+
 const VIEWS = [
-  { id: "overview", name: "总览", desc: "学习进度、薄弱点与下一步建议" },
-  { id: "map", name: "知识地图", desc: "按层级浏览知识点，标注优先级、目标层级与 JD 依据" },
-  { id: "modules", name: "课程大纲", desc: "模块化学习路径，含关键问题与实践任务" },
-  { id: "glossary", name: "关联学习", desc: "术语自动标注与解释，手动标记新名词并生成补充任务" },
-  { id: "quiz", name: "成果检验", desc: "生成分层测验，自评结果自动进入复习队列" },
-  { id: "review", name: "复习迭代", desc: "间隔复习队列，按 1/3/7/14/30 天滚动" },
-  { id: "interviews", name: "面试题库", desc: "大厂真实面经题目，含回答框架与关联知识点" },
-  { id: "iterate", name: "迭代机制", desc: "知识库如何随面经、JD 和学习结果持续更新" },
-  { id: "jd", name: "JD 参考", desc: "招聘 JD 调研结论与知识地图的对应关系" },
+  { id: "overview", name: "总览", desc: "学习进度、薄弱点与下一步建议", group: "学习流程" },
+  { id: "map", name: "知识地图", desc: "按层级浏览知识点，标注优先级、目标层级与 JD 依据", group: "学习流程" },
+  { id: "modules", name: "课程大纲", desc: "模块化学习路径，含关键问题与实践任务", group: "学习流程" },
+  { id: "glossary", name: "关联学习", desc: "术语自动标注与解释，手动标记新名词并生成补充任务", group: "学习流程" },
+  { id: "quiz", name: "成果检验", desc: "生成分层测验，自评结果自动进入复习队列", group: "检验复习" },
+  { id: "review", name: "复习迭代", desc: "间隔复习队列，按 1/3/7/14/30 天滚动", group: "检验复习" },
+  { id: "interviews", name: "面试题库", desc: "大厂真实面经题目，含回答框架与关联知识点", group: "检验复习" },
+  { id: "iterate", name: "迭代机制", desc: "知识库如何随面经、JD 和学习结果持续更新", group: "系统" },
+  { id: "jd", name: "JD 参考", desc: "招聘 JD 调研结论与知识地图的对应关系", group: "系统" },
 ];
 
 let state = loadState();
@@ -143,9 +155,15 @@ function init() {
 
 function renderNav() {
   const nav = document.getElementById("nav");
-  nav.innerHTML = VIEWS.map(
-    (v) => `<button class="nav-item ${v.id === currentView ? "active" : ""}" data-view="${v.id}">${esc(v.name)}</button>`
-  ).join("");
+  const groups = [...new Set(VIEWS.map((v) => v.group))];
+  nav.innerHTML = groups.map((g) => `
+    <div class="nav-group">
+      <div class="nav-group-label">${esc(g)}</div>
+      ${VIEWS.filter((v) => v.group === g).map((v) => `
+        <button class="nav-item ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
+          <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
+        </button>`).join("")}
+    </div>`).join("");
   nav.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
       currentView = btn.dataset.view;
@@ -158,9 +176,9 @@ function renderNav() {
 
 function renderDomainSwitch() {
   const box = document.getElementById("domainSwitch");
-  box.innerHTML = "<h3>学习领域</h3>" + DOMAINS.map(
+  box.innerHTML = "<h3>学习领域</h3><div class='domain-seg'>" + DOMAINS.map(
     (d) => `<button class="domain-btn ${d.id === state.domain ? "active" : ""}" data-domain="${d.id}">${esc(d.name)}</button>`
-  ).join("");
+  ).join("") + "</div>";
   box.querySelectorAll(".domain-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.domain = btn.dataset.domain;
@@ -221,6 +239,9 @@ function render() {
   const view = VIEWS.find((v) => v.id === currentView);
   document.getElementById("viewTitle").textContent = `${domain().name} · ${view.name}`;
   document.getElementById("viewDesc").textContent = view.desc;
+  const s = stats();
+  const pct = s.total ? Math.round((s.mastered / s.total) * 100) : 0;
+  document.getElementById("topProgress").innerHTML = `<span>${s.mastered}/${s.total} 已掌握</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`;
   const content = document.getElementById("content");
   if (currentView === "overview") content.innerHTML = renderOverview();
   else if (currentView === "map") content.innerHTML = renderMap();
@@ -268,13 +289,23 @@ function renderOverview() {
 }
 
 function renderMap() {
-  return domain().layers.map((layer) => {
-    const nodes = domain().nodes.filter((n) => n.layer === layer.id);
+  const f = window.mapFilter || { priority: "all", status: "all" };
+  const chip = (key, val, label) => `<button class="chip ${f[key] === val ? "on" : ""}" data-filter="${key}" data-val="${val}">${label}</button>`;
+  const toolbar = `<div class="card filter-bar">
+    <b>筛选</b>
+    <div class="chip-row">${chip("priority", "all", "全部优先级")}${chip("priority", "P0", "P0")}${chip("priority", "P1", "P1")}${chip("priority", "P2", "P2")}</div>
+    <div class="chip-row">${chip("status", "all", "全部状态")}${chip("status", "todo", "未开始")}${chip("status", "doing", "学习中")}${chip("status", "mastered", "已掌握")}</div>
+  </div>`;
+  const match = (n) => (f.priority === "all" || n.priority === f.priority) && (f.status === "all" || (prog().nodes[n.id] || {}).status === f.status || (f.status === "todo" && !prog().nodes[n.id]));
+  const body = domain().layers.map((layer) => {
+    const nodes = domain().nodes.filter((n) => n.layer === layer.id && match(n));
+    if (!nodes.length) return "";
     return `<div class="layer-block">
       <div class="layer-head"><h2>${esc(layer.name)}</h2><span>${esc(layer.desc)}</span></div>
       <div class="card">${nodes.map(nodeRow).join("")}</div>
     </div>`;
   }).join("");
+  return toolbar + (body || `<div class="card"><div class="empty">当前筛选没有匹配的知识点。</div></div>`);
 }
 
 function nodeRow(n) {
@@ -567,6 +598,13 @@ function bindViewEvents() {
       st.status = sel.value;
       if (sel.value === "mastered") st.mastery = Math.max(st.mastery, 4);
       saveState();
+      render();
+    });
+  });
+  document.querySelectorAll("[data-filter]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      window.mapFilter = window.mapFilter || { priority: "all", status: "all" };
+      window.mapFilter[chip.dataset.filter] = chip.dataset.val;
       render();
     });
   });
