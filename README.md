@@ -1,0 +1,64 @@
+# 自迭代学习系统
+
+面向产品经理的可复用学习闭环软件工具，用于快速掌握陌生领域知识，并持续产出可用于知识分享和面试的成果。已按 2026 年 AI 产品经理与具身智能产品经理招聘 JD，预置两个学习领域。
+
+## 快速开始
+
+无需安装任何依赖，直接用浏览器打开：
+
+```text
+app/index.html
+```
+
+数据自动保存在浏览器本地（localStorage），左下角支持进度导出、导入和按领域重置。
+
+## 已预置领域
+
+| 领域 | 知识点 | 课程模块 | 依据 |
+| --- | --- | --- | --- |
+| AI 技术知识 | 20 个，四层结构 | 9 个模块 + 分层测验 + 15 道大厂真题 | [JD 与面经调研](docs/jd-research.md) |
+| 机器人技术知识 | 21 个，四层结构 | 8 个模块 + 分层测验 + 12 道高频真题 | [JD 与面经调研](docs/jd-research.md) |
+
+知识地图按基础层、核心层、应用层、前沿层组织，每个知识点标注 P0-P3 优先级、L1-L4 目标层级和 JD 依据。
+
+## 五阶段闭环
+
+1. **定向**：以 JD 能力要求为验收标准（见「JD 参考」页）。
+2. **收集**：知识地图四层结构 + 优先级矩阵，已按调研预置。
+3. **学习**：课程模块 1-3 小时一个，含关键问题与实践任务。
+4. **检验**：分层测验自评「会 / 模糊 / 不会」，自动更新掌握度。
+5. **迭代**：按 1/3/7/14/30 天间隔复习，薄弱点自动回流队列。
+
+工具内含「面试题库」（大厂真题 + 回答框架 + 关联知识点）和「迭代机制」（面经/JD/学习/信息源四条自迭代回路与维护节奏）两个页面。
+
+## 关联学习
+
+- **预先标注**：AI 领域预置 18 条术语表，机器人领域预置 20 条，覆盖 Attention、RAG、MCP、VLA、Sim2Real、遥操作等高频名词。正文、课程、测验和面试题中的术语会自动标注，点击即看解释和关联知识点。
+- **手动标记**：学习中遇到未收录的新名词，用鼠标选中后点击「标记名词」，进入待补充清单；系统为每个名词生成补充提示词，复制发给智能体即可调研入库并关联课程。
+
+## 知识更新方式
+
+1. **自动化**：定时任务每两周调研最新面经、JD 和信息源，自动补充知识点、课程、测验和真题；无实质变化则静默结束。任务配置见 [docs/automation-spec.md](docs/automation-spec.md)。
+2. **定制化**：随时在对话中提出新增需求（如「补充医疗场景具身智能」），由智能体调研后按同一数据结构入库，提示词模板见 [prompts/learning-prompts.md](prompts/learning-prompts.md)。
+
+## 目录结构
+
+```text
+app/                        本地网页工具（直接打开 index.html）
+|- assets/app.js            应用逻辑与间隔复习算法
+|- assets/data-ai.js        AI 领域知识地图、课程、题库、JD
+|- assets/data-robotics.js  机器人领域知识地图、课程、题库、JD
+docs/
+|- jd-research.md           JD 调研结论与来源
+|- system-design.md         方法论设计
+|- operating-guide.md       文字版操作指南
+|- templates/               可复用 Markdown 模板
+prompts/                    AI 辅助提示词
+```
+
+## 文档体系
+
+- 系统设计：[docs/system-design.md](docs/system-design.md)
+- 操作指南：[docs/operating-guide.md](docs/operating-guide.md)
+- JD 调研：[docs/jd-research.md](docs/jd-research.md)
+- AI 提示词：[prompts/learning-prompts.md](prompts/learning-prompts.md)

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自迭代学习系统</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">LX</div>
+      <div>
+        <div class="brand-name">自迭代学习系统</div>
+        <div class="brand-sub">产品经理技术学习闭环</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="domain-switch" id="domainSwitch"></div>
+    <div class="sidebar-footer">
+      <button class="btn ghost small" id="exportBtn">导出进度</button>
+      <button class="btn ghost small" id="importBtn">导入进度</button>
+      <input type="file" id="importFile" accept=".json" hidden>
+      <button class="btn danger small" id="resetBtn">重置当前领域</button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <h1 id="viewTitle"></h1>
+      <p id="viewDesc"></p>
+    </header>
+    <section class="content" id="content"></section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="assets/data-ai.js"></script>
+<script src="assets/data-robotics.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
