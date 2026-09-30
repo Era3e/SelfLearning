@@ -155,11 +155,16 @@ function init() {
 
 function renderNav() {
   const nav = document.getElementById("nav");
-  nav.innerHTML = VIEWS.map((v) => `
-    <button class="tab ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
-      <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
-    </button>`).join("");
-  nav.querySelectorAll(".tab").forEach((btn) => {
+  const groups = [...new Set(VIEWS.map((v) => v.group))];
+  nav.innerHTML = groups.map((g) => `
+    <div class="nav-group">
+      <div class="nav-group-label">${esc(g)}</div>
+      ${VIEWS.filter((v) => v.group === g).map((v) => `
+        <button class="nav-item ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
+          <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
+        </button>`).join("")}
+    </div>`).join("");
+  nav.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
       currentView = btn.dataset.view;
       currentQuiz = [];
@@ -171,7 +176,7 @@ function renderNav() {
 
 function renderDomainSwitch() {
   const box = document.getElementById("domainSwitch");
-  box.innerHTML = "<div class='domain-seg'>" + DOMAINS.map(
+  box.innerHTML = "<h3>学习领域</h3><div class='domain-seg'>" + DOMAINS.map(
     (d) => `<button class="domain-btn ${d.id === state.domain ? "active" : ""}" data-domain="${d.id}">${esc(d.name)}</button>`
   ).join("") + "</div>";
   box.querySelectorAll(".domain-btn").forEach((btn) => {
@@ -240,6 +245,8 @@ function importProgress(ev) {
 
 function render() {
   const view = VIEWS.find((v) => v.id === currentView);
+  document.getElementById("viewTitle").textContent = view.name;
+  document.getElementById("viewDesc").textContent = view.desc;
   const s = stats();
   const pct = s.total ? Math.round((s.mastered / s.total) * 100) : 0;
   document.getElementById("topProgress").innerHTML = `<span>${s.mastered}/${s.total} 已掌握</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`;
@@ -465,12 +472,13 @@ function renderJD() {
 
 function renderInterviews() {
   const items = domain().interviews || [];
-  const companies = [...new Set(items.map((i) => i.company))];
   return `<div class="card" style="margin-bottom:14px">
     <h2>题库说明</h2>
     <p>题目来自公开面经与大厂真题合集（见「迭代机制」页的信息源），按产品经理视角改写为「面试官在考察什么 + 回答框架」。先自己作答，再展开参考框架，最后到关联知识点补弱。</p>
   </div>
-  <div class="card"><h2>大厂真题（${items.length} 道）</h2>
+  <div class="card">
+    <p class="glossary-hint" style="margin-bottom:6px">先自己作答，再展开回答框架；薄弱术语点击即可跳看解释。</p>
+    <h2>大厂真题（${items.length} 道）</h2>
   ${items.map((it, i) => `
     <div class="jd-item">
       <div class="node-title">${i + 1}. ${esc(it.q)} ${badge(it.company, "jd")} ${badge(it.level, "lvl")}</div>
@@ -514,21 +522,22 @@ function renderIterate() {
 
 function renderGlossaryView() {
   const pending = prog().pendingTerms.filter((p) => !p.done);
-  const done = prog().pendingTerms.filter((p) => p.done);
   const q = (window.glossaryQuery || "").trim().toLowerCase();
   const items = glossary().filter((g) => !q || g.term.toLowerCase().includes(q) || g.def.toLowerCase().includes(q));
   return `
-  <div class="grid cols-2" style="margin-bottom:14px">
-    <div class="card"><h2>使用方法</h2>
-      <p>1. 正文和题目中的术语已自动标注为绿色虚线，点击即看解释和关联知识点。<br>
-      2. 遇到未标注的新名词，用鼠标选中后点击「标记名词」，进入待补充清单。<br>
-      3. 点击「生成补充提示词」，把提示词发给智能体，调研后会写入术语表并关联课程。</p>
+  <div class="card" style="margin-bottom:14px">
+    <div class="glossary-head">
+      <h2>术语浏览</h2>
+      <div class="quiz-actions">
+        <input id="glossarySearch" placeholder="搜索术语或解释，如 Attention、遥操作..." value="${esc(window.glossaryQuery || "")}">
+        <button class="btn small" id="glossarySearchBtn">搜索</button>
+      </div>
     </div>
-    <div class="card"><h2>术语表（${glossary().length} 条）</h2>
-      <div class="quiz-actions"><input id="glossarySearch" placeholder="搜索术语或解释..." value="${esc(window.glossaryQuery || "")}"><button class="btn small" id="glossarySearchBtn">搜索</button></div>
-    </div>
+    <p class="glossary-hint">正文中的术语已自动标注，点击即可查看解释。遇到新名词，选中文字后点「标记名词」加入下方待补充清单。</p>
+    ${items.map((g) => `<div class="jd-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
+    <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
   </div>
-  <div class="card" style="margin-bottom:14px"><h2>待补充名词（${pending.length}）</h2>
+  <div class="card"><h2>待补充名词（${pending.length}）</h2>
     ${pending.length ? pending.map((p, i) => `
       <div class="due-item"><div class="node-main">
         <div class="node-title">${esc(p.term)} ${badge(new Date(p.addedAt).toLocaleDateString(), "p3")}</div>
@@ -544,10 +553,6 @@ function renderGlossaryView() {
           <button class="btn small" data-pt-done="${esc(p.term)}">标记已补充</button>
         </div>
       </div></div>`).join("") : `<div class="empty">暂无待补充名词。学习中选中文字即可标记。</div>`}
-  </div>
-  <div class="card"><h2>术语浏览（${items.length} 条）</h2>
-    ${items.map((g) => `<div class="jd-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
-    <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
   </div>`;
 }
 
