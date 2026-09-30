@@ -166,12 +166,17 @@ select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; fo
 .glossary-hint { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; }
-  .nav { flex-direction: row; flex-wrap: wrap; }
-  .nav-group { display: contents; }
-  .nav-group-label { display: none; }
-  .domain-btn { padding: 7px 10px; }
+  .app { grid-template-columns: 64px 1fr; }
+  .sidebar { position: sticky; height: 100vh; padding: 12px 8px; gap: 10px; }
+  .brand { justify-content: center; }
+  .brand-name, .nav-group-label, .d-full { display: none; }
+  .nav-item { justify-content: center; padding: 10px 0; }
+  .nav-item span:last-child { display: none; }
+  .domain-switch { padding-top: 10px; border-top: 1px solid rgba(255,255,255,.12); }
+  .domain-seg { grid-template-columns: 1fr; }
+  .domain-btn { padding: 7px 4px; }
+  .d-short { display: block; }
+  .sidebar-footer { display: flex; justify-content: center; }
   .top-progress { display: none; }
   .page-head h1 { font-size: 18px; }
   .main { padding: 18px 16px 40px; }
