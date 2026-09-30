@@ -576,25 +576,42 @@ function buildTermUI() {
     if (t) { ev.stopPropagation(); showTerm(t.dataset.term); return; }
     if (!ev.target.closest("#termPop")) document.getElementById("termPop").classList.remove("show");
   });
-  document.addEventListener("mouseup", (ev) => {
-    const float = document.getElementById("markFloat");
-    const sel = window.getSelection();
-    const text = sel ? sel.toString() : "";
-    if (text && text.trim().length >= 1 && text.trim().length <= 40 && !ev.target.closest("#markFloat")) {
-      float.style.left = Math.min(window.innerWidth - 110, ev.clientX) + "px";
-      float.style.top = Math.max(8, ev.clientY - 42) + "px";
-      float.style.display = "block";
-      float.dataset.term = text.trim();
-    } else if (!ev.target.closest("#markFloat")) {
-      float.style.display = "none";
-    }
+  let markTimer = null;
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(markTimer);
+    markTimer = setTimeout(updateMarkFloat, 120);
   });
+  document.addEventListener("scroll", () => {
+    const float = document.getElementById("markFloat");
+    if (float) float.style.display = "none";
+  }, true);
   document.getElementById("markFloat").addEventListener("click", (ev) => {
     addPendingTerm(ev.target.dataset.term || "");
     ev.target.style.display = "none";
     window.getSelection().removeAllRanges();
     if (currentView === "glossary") render();
   });
+}
+
+function updateMarkFloat() {
+  const float = document.getElementById("markFloat");
+  if (!float) return;
+  const sel = window.getSelection();
+  const text = sel && !sel.isCollapsed ? sel.toString().trim() : "";
+  const content = document.querySelector(".content");
+  const node = sel && sel.anchorNode;
+  const insideContent = !!(node && content && content.contains(node) && node.nodeType === 3);
+  const inFormField = !!(node && node.parentElement && node.parentElement.closest("input, textarea, select, .term-pop, .menu-pop"));
+  if (text && text.length <= 40 && insideContent && !inFormField && sel.rangeCount) {
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    float.style.left = Math.min(window.innerWidth - 110, Math.max(8, rect.left)) + "px";
+    float.style.top = Math.max(8, rect.top - 42) + "px";
+    float.style.display = "block";
+    float.dataset.term = text;
+  } else {
+    float.style.display = "none";
+    delete float.dataset.term;
+  }
 }
 
 function bindViewEvents() {
