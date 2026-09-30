@@ -14,6 +14,12 @@ const ICONS = {
   jd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
 };
 
+const STATUS = {
+  todo: { label: "未开始", next: "doing", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>' },
+  doing: { label: "学习中", next: "mastered", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' },
+  mastered: { label: "已掌握", next: "todo", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
+};
+
 const VIEWS = [
   { id: "overview", name: "总览", desc: "学习进度、薄弱点与下一步建议", group: "学习流程" },
   { id: "map", name: "知识地图", desc: "按层级浏览知识点，标注优先级、目标层级与 JD 依据", group: "学习流程" },
@@ -318,21 +324,14 @@ function renderMap() {
 
 function nodeRow(n) {
   const st = nodeState(n.id);
-  const statusBadge = st.status === "mastered" ? badge("已掌握", "status-done") : st.status === "doing" ? badge("学习中", "status-doing") : badge("未开始", "status-todo");
   return `<div class="node-row" data-node="${n.id}">
     <div class="node-main">
-      <div class="node-title">${esc(n.name)} ${badge(n.priority, n.priority.toLowerCase())} ${badge(n.level, "lvl")} ${badge(domain().layers.find((l) => l.id === n.layer).name, "layer")} ${statusBadge}</div>
+      <div class="node-title">${esc(n.name)} ${badge(n.priority, n.priority.toLowerCase())} ${badge(n.level, "lvl")} ${badge(domain().layers.find((l) => l.id === n.layer).name, "layer")}</div>
       <div class="node-desc">${linkTerms(esc(n.desc))}</div>
       <div class="node-meta">${n.jd ? badge("JD 依据", "jd") : ""}<span style="font-size:12px;color:var(--muted)">${esc(n.jd || "")}</span></div>
       ${n.sources ? `<div class="node-meta">${badge("信息源", "p2")}<span style="font-size:12px;color:var(--muted)">${esc(n.sources)}</span></div>` : ""}
-      <div class="node-meta">
-        <select data-status="${n.id}">
-          <option value="todo" ${st.status === "todo" ? "selected" : ""}>未开始</option>
-          <option value="doing" ${st.status === "doing" ? "selected" : ""}>学习中</option>
-          <option value="mastered" ${st.status === "mastered" ? "selected" : ""}>已掌握</option>
-        </select>
-      </div>
     </div>
+    <button class="status-icon st-${st.status}" data-cycle="${n.id}" title="${STATUS[st.status].label}，点击切换">${STATUS[st.status].svg}</button>
   </div>`;
 }
 
@@ -615,11 +614,11 @@ function updateMarkFloat() {
 }
 
 function bindViewEvents() {
-  document.querySelectorAll("[data-status]").forEach((sel) => {
-    sel.addEventListener("change", () => {
-      const st = nodeState(sel.dataset.status);
-      st.status = sel.value;
-      if (sel.value === "mastered") st.mastery = Math.max(st.mastery, 4);
+  document.querySelectorAll("[data-cycle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const st = nodeState(btn.dataset.cycle);
+      st.status = STATUS[st.status].next;
+      if (st.status === "mastered") st.mastery = Math.max(st.mastery, 4);
       saveState();
       render();
     });
