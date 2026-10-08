@@ -118,6 +118,9 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .detail-edit-input { flex: 1; min-width: 180px; border: 1px solid #99f6e4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; }
 .detail-add-group { display: flex; gap: 8px; margin-top: 2px; }
 .detail-add-group input { flex: 1; border: 1px dashed var(--line); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; background: #fff; }
+.deep-block { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; }
+.deep-block h3 { color: var(--accent); margin-bottom: 8px; }
+.deep-block p { font-size: 13px; line-height: 1.85; color: var(--body-ink); }
 .mindmap { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
 .mindmap-wrap { position: relative; overflow: auto; max-height: 540px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
 .mindmap-wrap .mindmap { border: none; border-radius: 0; display: block; }

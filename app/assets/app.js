@@ -462,10 +462,12 @@ function renderDetailEditor(n) {
     <span class="detail-title">知识点明细</span>
     <button class="btn small ${mode === "outline" ? "primary" : ""}" data-mode="outline">大纲</button>
     <button class="btn small ${mode === "mind" ? "primary" : ""}" data-mode="mind">脑图</button>
+    <button class="btn small ${mode === "deep" ? "primary" : ""}" data-mode="deep">原理示例</button>
     <span class="detail-tip">大纲可编辑；脑图点击条目可标记掌握，★ 为重点</span>
   </div>`;
   if (mode === "mind") return `<div class="detail-box">${toolbar}${renderMindmap(n, groups)}
     <p class="detail-tip" style="margin:8px 0 0">滚轮缩放画布；右上角图标可导出 PNG/SVG 或复位缩放。</p></div>`;
+  if (mode === "deep") return `<div class="detail-box">${toolbar}${renderDeep(n)}</div>`;
   const body = groups.map((g, gi) => {
     const total = g.items.length;
     const done = g.items.filter((it) => it[2]).length;
@@ -809,6 +811,15 @@ function renderJDInbox() {
         </div>
       </div>`).join("") : `<div class="empty">素材库为空。上传截图或粘贴文本即可开始。</div>`}
   </div>`;
+}
+
+function renderDeep(n) {
+  const k = domain().knowledge && domain().knowledge[n.id];
+  if (!k) return `<div class="empty">该知识点暂无原理与示例内容，可随时让智能体补充。</div>`;
+  return `
+    <div class="deep-block"><h3>原理解析</h3><p>${linkTerms(esc(k.p))}</p></div>
+    <div class="deep-block"><h3>解析示例</h3><p>${linkTerms(esc(k.e))}</p></div>
+    <div class="detail-tip">原理说明「为什么这样工作」；示例展示「具体场景怎么判断和决策」。术语点击可查看解释。</div>`;
 }
 
 function renderInterviews() {
