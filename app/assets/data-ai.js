@@ -236,6 +236,8 @@ const AI_DOMAIN = {
     { company: "百度", role: "AI/大模型产品经理（Agent/检索方向）", points: "负责 Agent 与检索方向产品设计，强调大模型应用落地能力。" },
     { company: "阿里巴巴", role: "AI 产品经理（校招）", points: "探索 Agent 协作、多模态理解、RAG 等技术能力转化为可规模化产品功能，定义下一代电商交互范式。" },
     { company: "深言科技", role: "AI Agent 产品经理", points: "AI 内容类 ToC 产品需求分析、产品设计和策略优化；要求跟踪行业最新技术与国内外产品趋势。" },
+    { company: "LLMGuide 能力地图", role: "Agent 工程岗 JD 画像（产品经理需理解到选型层）", points: "原始关键词：Tool Calling、Memory、Workflow、MCP、LangGraph、AutoGen、CrewAI、DSL；高频追问：什么时候用固定 Workflow，什么时候用 Agent。" },
+    { company: "面灵 AI 真题出题公司", role: "AI 产品经理能力信号（2026 面经，截至 9 月）", points: "近期实际出题公司：字节跳动、腾讯、美团、阿里巴巴、百度、京东、拼多多、小红书、携程、爱奇艺；高频考察：SFT/DPO、RAG Bad Case、垂类大模型、Agent 与 Workflow、MCP 与 Skills、AI 评估指标。" },
     { company: "市场共性（BOSS/猎聘/Indeed 聚合）", role: "AI/大模型产品经理画像", points: "高频关键词：LLM、Agent、RAG、智能客服、智能问答、AIGC、NLP；能力要求集中在场景落地、跨团队协作、商业化和效果评估。" },
   ],
 };

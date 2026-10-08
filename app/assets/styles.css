@@ -217,6 +217,7 @@ select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; fo
 .jd-fields { display: grid; gap: 6px; flex: 1; }
 .jd-fields input { border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; }
 .ocr-state { font-size: 12px; color: var(--muted); align-self: center; }
+.jd-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .task-box { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px; padding: 10px 12px; font-size: 13px; color: #115e59; }
 .checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 

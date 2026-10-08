@@ -918,9 +918,10 @@ function renderJDInbox() {
   <div class="card" style="margin-bottom:14px">
     <h2>上传招聘页截图</h2>
     <p>选择一张或多张 JD 截图，系统会在浏览器本地 OCR 识别为文本；识别结果可编辑修正，确认后保存到素材库。图片压缩后仅存在本机。</p>
-    <div class="quiz-actions">
-      <input type="file" id="jdFile" accept="image/*" multiple>
-      <button class="btn small" id="jdPasteMode">无截图？直接粘贴文本</button>
+    <div class="jd-actions">
+      <label class="btn primary" for="jdFile">选择截图（可多选）</label>
+      <input type="file" id="jdFile" accept="image/*" multiple hidden>
+      <button class="btn" id="jdPasteMode">按文本添加</button>
     </div>
     <div id="jdDraftBox">${drafts.map((d, i) => `
       <div class="jd-draft">
@@ -946,9 +947,10 @@ function renderJDInbox() {
     <div class="glossary-head">
       <h2>JD 素材库（待处理 ${pending.length} / 共 ${items.length}）</h2>
       <div class="quiz-actions">
-        <button class="btn small primary" id="jdExport">导出待处理 JD</button>
+        <button class="btn small primary" id="jdExport" title="把所有待处理 JD 生成 Markdown 文件，发给定时任务或智能体提炼知识点、更新课程">导出待处理 JD</button>
       </div>
     </div>
+    <p class="glossary-hint">数据来源：全部来自你在本页上传的截图（本地 OCR 识别）或手动粘贴的文本，仅保存在浏览器 localStorage，不经任何上传。「导出待处理 JD」会把状态为待处理的条目汇总成 Markdown 文件，用于交给定时任务或智能体提炼知识点并更新课程。</p>
     ${items.length ? items.map((it, i) => `
       <div class="jd-item">
         <div class="node-title">${esc(it.company || "未填公司")} · ${esc(it.role || "未填岗位")} ${badge(it.status === "pending" ? "待处理" : "已入库", it.status === "pending" ? "p0" : "status-done")} ${badge(it.date, "p3")}</div>

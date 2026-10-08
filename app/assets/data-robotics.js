@@ -229,5 +229,9 @@ const ROBOTICS_DOMAIN = {
     { company: "中化学数智", role: "产品经理（具身智能）", points: "参与具身智能 AI 大模型技术架构规划；面向机器人场景做业务调研和数据分析，应用机器学习、深度学习、强化学习解决感知、决策与控制问题。" },
     { company: "阿里巴巴", role: "机器人方向（VLA 相关）", points: "熟悉 Pi0、GR00T、ACT、Transformer 等 VLA 模型并有训练应用实践；熟悉多模态数据处理；具备机器人学习相关算法基础。" },
     { company: "柯西黎曼（智联）", role: "具身智能产品经理", points: "负责应用场景研究与规划，将用户场景需求转化为解决方案；协调项目、研发、算法、设计团队；有具身智能、智能驾驶、视觉导航产品经验优先。" },
+    { company: "奇瑞控股", role: "产品经理（具身智能/机器人方向）", points: "具身智能机器人方向产品规划；关注教育等场景的教学需求、实训痛点与行业人才需求（BOSS直聘原始 JD 摘要）。" },
+    { company: "珞石机器人", role: "具身智能机器人产品经理（上海）", points: "原始 JD 关键词：25-50K·14 薪、硕士、5-10 年经验、机器人产品定义与落地（猎聘摘要）。" },
+    { company: "逐际动力", role: "具身智能算法岗（VLA 模型训练与部署）", points: "原始关键词：VLA、大模型、World Model、机器人学习、仿真到真机技术闭环、多类型真实机器人平台调试部署（产品经理需理解其能力边界）。" },
+    { company: "开源题库/牛客面经", role: "具身智能能力画像（同义题频次≥3 才入卷）", points: "原始关键词：OpenVLA、RT-2、π0/π0.5、GR00T、ACT、Diffusion Policy、Flow Matching、模仿学习/DAgger、遥操作、Sim2Real、域随机化、世界模型（Dreamer/TD-MPC2/V-JEPA 2）、Jetson Orin 边缘部署、DROID/Ego4D、WBC/TSID、ORB-SLAM3/VINS-Fusion、VLN/ObjectNav。" },
   ],
 };
