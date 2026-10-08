@@ -975,6 +975,13 @@ function renderDeep(n) {
 function renderInterviews() {
   const items = domain().interviews || [];
   const demoBank = domain().demos || {};
+  const normQ = (s) => String(s).replace(/[（）()？?：:、，,。\s]/g, "");
+  const findDemo = (q) => {
+    if (demoBank[q]) return demoBank[q];
+    const base = normQ(q.split("（")[0].split("(")[0]);
+    const keys = Object.keys(demoBank);
+    return keys.some((k) => normQ(k) === base) ? demoBank[keys.find((k) => normQ(k) === base)] : keys.find((k) => base.includes(normQ(k).slice(0, 10)) || normQ(k).includes(base.slice(0, 10)));
+  };
   const f = window.itvFilter || { company: "all", level: "all" };
   const companies = [...new Set(items.map((i) => i.company))];
   const levels = [...new Set(items.map((i) => i.level))];
@@ -988,7 +995,7 @@ function renderInterviews() {
     <p class="card glossary-hint">共 ${items.length} 道，当前 ${filtered.length} 道。先自己作答，再展开回答框架和示例回答；薄弱术语点击即可查看解释。</p>
     <h2>大厂真题（${filtered.length} 道）</h2>
   ${filtered.map((it, i) => {
-    const demo = demoBank[it.q] || it.demo;
+    const demo = findDemo(it.q) || it.demo;
     return `
     <div class="jd-item">
       <div class="node-title">${i + 1}. ${esc(it.q)} ${badge(it.company, "jd")} ${badge(it.level, "lvl")}</div>
