@@ -356,8 +356,6 @@ function renderOverview() {
   const s = stats();
   const pct = s.total ? Math.round((s.mastered / s.total) * 100) : 0;
   const modPct = s.totalModules ? Math.round((s.doneModules / s.totalModules) * 100) : 0;
-  const p0Left = domain().nodes.filter((n) => n.priority === "P0" && (prog().nodes[n.id] || {}).status !== "mastered");
-  const next = p0Left.slice(0, 4).map((n) => `<div class="node-row"><div class="node-main"><div class="node-title">${esc(n.name)} ${badge(n.priority, n.priority.toLowerCase())}</div><div class="node-desc">${esc(n.desc)}</div></div></div>`).join("");
   return `
     <div class="grid cols-4">
       <div class="stat ok"><div class="label">知识点掌握</div><div class="num">${s.mastered}<small> / ${s.total}</small></div><div class="progress-track" style="margin-top:10px"><div class="progress-fill" style="width:${pct}%"></div></div></div>
@@ -365,22 +363,50 @@ function renderOverview() {
       <div class="stat"><div class="label">学习中</div><div class="num">${s.learning}</div></div>
       <div class="stat ${s.due > 0 ? "warn" : ""}"><div class="label">待复习</div><div class="num">${s.due}</div></div>
     </div>
-    <div class="grid cols-2" style="margin-top:14px">
-      <div class="card"><h2>建议下一步</h2>${next || '<div class="empty">P0 知识点已全部掌握，进行领域总测或开始另一领域。</div>'}</div>
-      <div class="card"><h2>闭环说明</h2>
-        <p><b>定向</b>：以 JD 能力要求为验收标准。<b>收集</b>：知识地图按四层组织，标注 P0-P3 优先级。<b>学习</b>：课程模块控制在 1-3 小时，完成实践任务。<b>检验</b>：分层测验自评，结果自动回流。<b>迭代</b>：间隔复习与薄弱点重学，让掌握度持续收敛。</p>
-        <p style="margin-top:10px">数据保存在浏览器本地，可通过左下角导出/导入备份。</p>
+    <div class="card" style="margin-top:14px"><h2>学习路径</h2>${renderPathGraph()}
+      <p class="detail-tip" style="margin:10px 0 0">主线先保 P0 必学，进阶通道可并行交叉；节点状态与课程 QA 自动联动，点击节点直达课程。</p></div>
+    <div class="card loop-card" style="margin-top:14px"><h2>闭环说明</h2>
+      <div class="loop-steps">
+        <div class="loop-step"><span class="loop-num">1</span><b>定向</b><i>以 JD 与面经能力要求定义验收标准</i></div>
+        <div class="loop-step"><span class="loop-num">2</span><b>收集</b><i>知识地图四层组织，P0-P3 定优先级</i></div>
+        <div class="loop-step"><span class="loop-num">3</span><b>学习</b><i>模块课程 + QA 清单 + 明细三层内容</i></div>
+        <div class="loop-step"><span class="loop-num">4</span><b>检验</b><i>分层测验自评，结果自动回流队列</i></div>
+        <div class="loop-step"><span class="loop-num">5</span><b>迭代</b><i>间隔复习 + 薄弱点重学持续收敛</i></div>
       </div>
+      <p class="detail-tip" style="margin-top:10px">数据保存在浏览器本地，可通过左下角「···」导出/导入备份。</p>
     </div>`;
+}
+
+function renderPathGraph() {
+  const lanes = [
+    { label: "主线（P0 必学）", mods: domain().modules.filter((m) => m.priority === "P0") },
+    { label: "进阶（P1/P2 交叉）", mods: domain().modules.filter((m) => m.priority !== "P0") },
+  ];
+  return lanes.map((lane) => {
+    let started = false;
+    return `<div class="path-lane">
+      <div class="path-label">${esc(lane.label)}</div>
+      <div class="path-nodes">${lane.mods.map((m) => {
+        const done = (prog().modules[m.id] || {}).done;
+        const qas = domain().qaBank[m.id] || [];
+        const qaDone = qas.filter((qa, i) => qaState(qaId(m, i)).status === "done").length;
+        const cls = done ? "done" : !started ? "current" : "";
+        if (!done && !started) started = true;
+        return `<button class="path-node ${cls}" data-path-module="${m.id}" title="${esc(m.goal)}">
+          <span class="path-name">${esc(m.name.replace(/^M\d+\s*/, ""))}</span>
+          <span class="path-meta">${done ? "✓ 已完成" : `QA ${qaDone}/${qas.length}`}</span>
+        </button>`;
+      }).join('<span class="path-arrow">→</span>')}</div>
+    </div>`;
+  }).join("");
 }
 
 function renderMap() {
   const f = window.mapFilter || { priority: "all", status: "all" };
   const chip = (key, val, label) => `<button class="chip ${f[key] === val ? "on" : ""}" data-filter="${key}" data-val="${val}">${label}</button>`;
   const toolbar = `<div class="card filter-bar">
-    <b>筛选</b>
-    <div class="chip-row">${chip("priority", "all", "全部优先级")}${chip("priority", "P0", "P0")}${chip("priority", "P1", "P1")}${chip("priority", "P2", "P2")}</div>
-    <div class="chip-row">${chip("status", "all", "全部状态")}${chip("status", "todo", "未开始")}${chip("status", "doing", "学习中")}${chip("status", "mastered", "已掌握")}</div>
+    <div class="filter-group"><span class="filter-label">优先级</span><div class="chip-row">${chip("priority", "all", "全部")}${chip("priority", "P0", "P0")}${chip("priority", "P1", "P1")}${chip("priority", "P2", "P2")}</div></div>
+    <div class="filter-group"><span class="filter-label">状态</span><div class="chip-row">${chip("status", "all", "全部")}${chip("status", "todo", "未开始")}${chip("status", "doing", "学习中")}${chip("status", "mastered", "已掌握")}</div></div>
   </div>`;
   const match = (n) => (f.priority === "all" || n.priority === f.priority) && (f.status === "all" || (prog().nodes[n.id] || {}).status === f.status || (f.status === "todo" && !prog().nodes[n.id]));
   const body = domain().layers.map((layer) => {
@@ -602,8 +628,65 @@ function applyMindZoom(delta) {
   label.textContent = Math.round(z * 100) + "%";
 }
 
+function getLLM() {
+  try { return JSON.parse(localStorage.getItem("pm-learning-llm") || "null"); } catch (e) { return null; }
+}
+
+async function regenAnswer(btn) {
+  const cfg = getLLM();
+  const prompt = `请重新回答以下课程问题，要求面向产品经理、结论先行、3-5 句话、指出产品决策含义：\n问题：${btn.dataset.q}\n当前答案：${btn.dataset.a}`;
+  if (!cfg) {
+    if (navigator.clipboard) navigator.clipboard.writeText(prompt).then(() => toast("未配置 LLM，已复制提示词，可在课程页配置 API"), () => toast("复制失败，请手动编辑"));
+    else toast("未配置 LLM 且浏览器不支持复制");
+    return;
+  }
+  btn.disabled = true;
+  toast("正在调用 LLM 重新生成...");
+  try {
+    const res = await fetch(cfg.base + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: "你是资深 AI 产品经理教练，用简洁中文重写课程答案：结论先行、3-5 句话、突出产品决策含义，避免空话。" },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const answer = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!answer) throw new Error("空响应");
+    qaState(btn.dataset.qaRegen).answer = answer.trim();
+    saveState();
+    render();
+    toast("LLM 已更新答案");
+  } catch (e) {
+    btn.disabled = false;
+    if (navigator.clipboard) navigator.clipboard.writeText(prompt);
+    toast("LLM 调用失败（" + e.message + "），已复制提示词备用");
+  }
+}
+
 function renderModules() {
-  return domain().modules.map((m) => {
+  const cfg = getLLM();
+  const bar = `<div class="card filter-bar" style="margin-bottom:14px">
+    <div class="filter-group"><span class="filter-label">LLM 直连</span><span class="llm-state">${cfg ? `已配置 · ${esc(cfg.model)}` : "未配置"}</span></div>
+    <button class="btn small" id="llmCfgBtn">${cfg ? "修改配置" : "配置 API"}</button>
+  </div>
+  <div class="card" id="llmCfgPanel" style="display:none;margin-bottom:14px">
+    <h2>LLM API 配置（OpenAI 兼容接口）</h2>
+    <div class="jd-fields">
+      <input id="llmBase" placeholder="Base URL，如 https://api.deepseek.com/v1" value="${cfg ? esc(cfg.base) : ""}">
+      <input id="llmModel" placeholder="模型名，如 deepseek-chat" value="${cfg ? esc(cfg.model) : ""}">
+      <input id="llmKey" type="password" placeholder="API Key，仅保存在本机浏览器" value="${cfg ? esc(cfg.key) : ""}">
+    </div>
+    <div class="quiz-actions"><button class="btn primary small" id="llmSave">保存配置</button><button class="btn small" id="llmClear">清除</button></div>
+    <p class="detail-tip" style="margin-top:8px">配置后「重新生成」会直接调用该模型更新答案；未配置时回退为复制提示词。Key 只存 localStorage，请自行注意共享设备风险。</p>
+  </div>`;
+  return bar + domain().modules.map((m) => {
     const done = (prog().modules[m.id] || {}).done;
     const open = expandedModule === m.id;
     const nodeTags = m.nodes.map((id) => ` ${badge(findNode(id) ? findNode(id).name : id, "layer")}`).join("");
@@ -619,7 +702,7 @@ function renderModules() {
         <button class="btn small" data-toggle="${m.id}">${open ? "收起" : "展开"}</button>
       </div>
       ${open ? `<div class="module-body">
-        <div class="qa"><b>关键问题 QA 清单</b><br>答案由调研预生成，可编辑补充；勾选表示已掌握。</div>
+        <div class="qa"><b>关键问题</b><br>答案由调研预生成，可编辑或调用 LLM 重新生成；勾选表示已掌握，全部勾选后模块自动完成。</div>
         ${qas.map((qa, i) => {
           const id = qaId(m, i);
           const st = qaState(id);
@@ -628,16 +711,15 @@ function renderModules() {
             <input type="checkbox" class="checkbox" data-qa-done="${id}" ${st.status === "done" ? "checked" : ""}>
             <div class="node-main">
               <div class="qa-q">${i + 1}. ${linkTerms(esc(qa.q))}</div>
-              <div class="quiz-a" style="display:none" id="qa-a-${id}">${esc(ans)}</div>
+              <div class="quiz-a" id="qa-a-${id}">${esc(ans)}</div>
               <div class="qa-edit" style="display:none" id="qa-e-${id}">
                 <textarea class="qa-textarea" id="qa-t-${id}">${esc(ans)}</textarea>
                 <div class="quiz-actions"><button class="btn primary small" data-qa-save="${id}">保存</button><button class="btn small" data-qa-cancel="${id}">取消</button></div>
               </div>
               <div class="quiz-actions">
-                <button class="btn small" data-qa-toggle="${id}">展开答案</button>
-                <button class="btn small" data-qa-edit="${id}">编辑</button>
+                <button class="mm-icon-btn qa-icon-btn" data-qa-edit="${id}" title="编辑答案"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>
+                <button class="mm-icon-btn qa-icon-btn" data-qa-regen="${id}" data-q="${esc(qa.q)}" data-a="${esc(ans)}" title="调用 LLM 重新生成（未配置则复制提示词）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
                 ${st.answer != null ? `<button class="btn small" data-qa-reset="${id}">重置预生成答案</button>` : ""}
-                <button class="btn small" data-qa-regen="${id}" data-q="${esc(qa.q)}" data-a="${esc(ans)}">重新生成</button>
               </div>
             </div>
           </div>`;
@@ -1093,14 +1175,14 @@ function bindViewEvents() {
   document.querySelectorAll("[data-qa-done]").forEach((cb) => {
     cb.addEventListener("change", () => {
       qaState(cb.dataset.qaDone).status = cb.checked ? "done" : "todo";
+      const modId = cb.dataset.qaDone.replace(/-q\d+$/, "");
+      const mod = domain().modules.find((m) => m.id === modId);
+      if (mod) {
+        const qas = domain().qaBank[modId] || [];
+        const allDone = qas.every((qa, i) => qaState(qaId(mod, i)).status === "done");
+        prog().modules[modId] = { done: allDone };
+      }
       saveState(); render();
-    });
-  });
-  document.querySelectorAll("[data-qa-toggle]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const el = document.getElementById(`qa-a-${btn.dataset.qaToggle}`);
-      el.style.display = el.style.display === "none" ? "block" : "none";
-      btn.textContent = el.style.display === "none" ? "展开答案" : "收起答案";
     });
   });
   document.querySelectorAll("[data-qa-edit]").forEach((btn) => {
@@ -1124,11 +1206,7 @@ function bindViewEvents() {
     });
   });
   document.querySelectorAll("[data-qa-regen]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const text = `请重新回答以下课程问题，要求面向产品经理、结论先行、3-5 句话、指出产品决策含义：\n问题：${btn.dataset.q}\n当前答案：${btn.dataset.a}`;
-      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("重新生成提示词已复制，发给智能体即可"), () => toast("复制失败，请手动编辑"));
-      else toast("浏览器不支持复制，请手动编辑");
-    });
+    btn.addEventListener("click", () => regenAnswer(btn));
   });
   document.querySelectorAll("[data-filter]").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -1296,6 +1374,40 @@ function bindViewEvents() {
       saveState(); render(); toast("已删除");
     });
   });
+  document.querySelectorAll(".module-head").forEach((head) => {
+    head.addEventListener("click", (e) => {
+      if (e.target.closest("input, button")) return;
+      const id = head.closest(".module-card").dataset.module;
+      expandedModule = expandedModule === id ? null : id;
+      render();
+    });
+  });
+  document.querySelectorAll("[data-path-module]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentView = "modules";
+      expandedModule = btn.dataset.pathModule;
+      renderNav();
+      render();
+    });
+  });
+  const llmCfgBtn = document.getElementById("llmCfgBtn");
+  if (llmCfgBtn) llmCfgBtn.addEventListener("click", () => {
+    const p = document.getElementById("llmCfgPanel");
+    p.style.display = p.style.display === "none" ? "block" : "none";
+  });
+  const llmSave = document.getElementById("llmSave");
+  if (llmSave) llmSave.addEventListener("click", () => {
+    const cfg = {
+      base: document.getElementById("llmBase").value.trim().replace(/\/$/, ""),
+      model: document.getElementById("llmModel").value.trim(),
+      key: document.getElementById("llmKey").value.trim(),
+    };
+    if (!cfg.base || !cfg.model || !cfg.key) { toast("请填写完整 Base URL、模型和 Key"); return; }
+    localStorage.setItem("pm-learning-llm", JSON.stringify(cfg));
+    render(); toast("LLM 配置已保存");
+  });
+  const llmClear = document.getElementById("llmClear");
+  if (llmClear) llmClear.addEventListener("click", () => { localStorage.removeItem("pm-learning-llm"); render(); toast("已清除 LLM 配置"); });
 }
 
 init();
