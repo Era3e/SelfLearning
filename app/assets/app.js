@@ -49,7 +49,7 @@ function loadState() {
 }
 
 function blankProgress() {
-  return { nodes: {}, modules: {}, reviews: {}, quizLog: [], pendingTerms: [] };
+  return { nodes: {}, modules: {}, reviews: {}, quizLog: [], pendingTerms: [], details: {}, qa: {} };
 }
 
 function saveState() {
@@ -63,6 +63,8 @@ function domain() {
 function prog() {
   if (!state.progress[state.domain]) state.progress[state.domain] = blankProgress();
   if (!Array.isArray(progSafe().pendingTerms)) progSafe().pendingTerms = [];
+  if (!progSafe().details) progSafe().details = {};
+  if (!progSafe().qa) progSafe().qa = {};
   return state.progress[state.domain];
 }
 
@@ -71,6 +73,27 @@ function progSafe() { return state.progress[state.domain]; }
 function nodeState(id) {
   if (!prog().nodes[id]) prog().nodes[id] = { status: "todo", mastery: 0 };
   return prog().nodes[id];
+}
+
+function nodeDetailsData(n) {
+  const p = prog();
+  if (p.details[n.id]) return p.details[n.id];
+  const base = domain().details && domain().details[n.id];
+  if (!base) return null;
+  return base.map((g) => ({ g: g.g, items: g.items.map((it) => [it[0], it[1] || 0, 0]) }));
+}
+
+function persistDetails(n, groups) {
+  prog().details[n.id] = groups;
+  saveState();
+}
+
+function qaId(m, i) { return `${m.id}-q${i + 1}`; }
+
+function qaState(id) {
+  const p = prog();
+  if (!p.qa[id]) p.qa[id] = { status: "todo" };
+  return p.qa[id];
 }
 
 function findNode(id) {
@@ -324,6 +347,7 @@ function renderMap() {
 
 function nodeRow(n) {
   const st = nodeState(n.id);
+  const open = window.expandedDetail === n.id;
   return `<div class="node-row" data-node="${n.id}">
     <div class="node-main">
       <div class="node-title">${esc(n.name)} ${badge(n.priority, n.priority.toLowerCase())} ${badge(n.level, "lvl")} ${badge(domain().layers.find((l) => l.id === n.layer).name, "layer")}</div>
@@ -331,8 +355,71 @@ function nodeRow(n) {
       <div class="node-meta">${n.jd ? badge("JD 依据", "jd") : ""}<span style="font-size:12px;color:var(--muted)">${esc(n.jd || "")}</span></div>
       ${n.sources ? `<div class="node-meta">${badge("信息源", "p2")}<span style="font-size:12px;color:var(--muted)">${esc(n.sources)}</span></div>` : ""}
     </div>
+    <button class="btn small ${open ? "primary" : ""}" data-detail="${n.id}">${open ? "收起明细" : "明细"}</button>
     <button class="status-icon st-${st.status}" data-cycle="${n.id}" title="${STATUS[st.status].label}，点击切换">${STATUS[st.status].svg}</button>
+    ${open ? renderDetailEditor(n) : ""}
   </div>`;
+}
+
+function mmPath(x1, y1, x2, y2, color, w) {
+  const mx = (x1 + x2) / 2;
+  return `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" stroke="${color}" stroke-width="${w}" fill="none"/>`;
+}
+
+function renderMindmap(n, groups) {
+  const palette = ["#0f766e", "#b45309", "#1d4ed8", "#be185d", "#6d28d9"];
+  const rowH = 24, groupGap = 16, W = 780;
+  const leaves = groups.reduce((s, g) => s + g.items.length, 0);
+  const H = Math.max(180, leaves * (rowH + 4) + groups.length * groupGap + 40);
+  const rootX = 18, gX = 180, lX = 330;
+  let y = 20;
+  let out = [`<text x="${rootX}" y="${H / 2 + 4}" class="mm-root">${esc(n.name)}</text>`];
+  groups.forEach((g, gi) => {
+    const c = palette[gi % palette.length];
+    const gH = g.items.length * (rowH + 4);
+    const gy = y + gH / 2;
+    out.push(mmPath(rootX + 110, H / 2, gX, gy, c, 1.6));
+    out.push(`<text x="${gX}" y="${gy + 4}" class="mm-group" fill="${c}">${esc(g.g)}</text>`);
+    g.items.forEach((it, ii) => {
+      const ly = y + ii * (rowH + 4) + 12;
+      out.push(mmPath(gX + 52, gy, lX, ly, c, 0.8));
+      const label = (it[1] ? "★ " : "") + (it[0].length > 34 ? it[0].slice(0, 33) + "…" : it[0]);
+      out.push(`<text x="${lX}" y="${ly + 4}" class="mm-item ${it[2] ? "mm-done" : ""}" data-mm="${gi}:${ii}" fill="${it[2] ? "#94a3b8" : "#334155"}">${esc(label)}</text>`);
+    });
+    y += gH + groupGap;
+  });
+  return `<svg class="mindmap" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${out.join("")}</svg>`;
+}
+
+function renderDetailEditor(n) {
+  const groups = nodeDetailsData(n);
+  const mode = window.detailMode || "outline";
+  if (!groups) {
+    return `<div class="detail-box"><button class="btn small" data-detail-init="${n.id}">初始化明细模板（构成/重点/易混淆/场景）</button></div>`;
+  }
+  const toolbar = `<div class="detail-toolbar">
+    <span class="detail-title">知识点明细</span>
+    <button class="btn small ${mode === "outline" ? "primary" : ""}" data-mode="outline">大纲</button>
+    <button class="btn small ${mode === "mind" ? "primary" : ""}" data-mode="mind">脑图</button>
+    <span class="detail-tip">大纲可编辑；脑图点击条目可标记掌握，★ 为重点</span>
+  </div>`;
+  if (mode === "mind") return `<div class="detail-box">${toolbar}${renderMindmap(n, groups)}</div>`;
+  const body = groups.map((g, gi) => {
+    const total = g.items.length;
+    const done = g.items.filter((it) => it[2]).length;
+    return `<div class="detail-group">
+      <div class="detail-group-head"><b>${esc(g.g)}</b><span>${done}/${total}</span><button class="mini-btn" data-group-del="${gi}" title="删除分组">×</button></div>
+      ${g.items.map((it, ii) => `<div class="detail-item ${it[2] ? "done" : ""}">
+        <button class="mini-btn ok ${it[2] ? "on" : ""}" data-item-done="${gi}:${ii}" title="标记掌握">✓</button>
+        <button class="mini-btn star ${it[1] ? "on" : ""}" data-item-star="${gi}:${ii}" title="标为重点">★</button>
+        <span class="detail-text ${it[1] ? "star" : ""}">${esc(it[0])}</span>
+        <button class="mini-btn" data-item-edit="${gi}:${ii}" title="编辑">✎</button>
+        <button class="mini-btn" data-item-del="${gi}:${ii}" title="删除">×</button>
+      </div>`).join("")}
+      <input class="detail-input" data-add-input="${gi}" placeholder="新增条目，回车保存">
+    </div>`;
+  }).join("");
+  return `<div class="detail-box">${toolbar}${body}<div class="quiz-actions"><button class="btn small" data-group-add>新增分组</button></div></div>`;
 }
 
 function renderModules() {
@@ -340,19 +427,43 @@ function renderModules() {
     const done = (prog().modules[m.id] || {}).done;
     const open = expandedModule === m.id;
     const nodeTags = m.nodes.map((id) => ` ${badge(findNode(id) ? findNode(id).name : id, "layer")}`).join("");
+    const qas = domain().qaBank[m.id] || (m.questions || []).map((q) => ({ q }));
+    const qaDone = qas.filter((qa, i) => qaState(qaId(m, i)).status === "done").length;
     return `<div class="module-card" data-module="${m.id}">
       <div class="module-head">
         <input type="checkbox" class="checkbox" data-module-done="${m.id}" ${done ? "checked" : ""}>
         <div class="grow">
-          <div class="node-title">${esc(m.name)} ${badge(m.priority, m.priority.toLowerCase())} ${badge(m.hours, "lvl")}${done ? badge("已完成", "status-done") : ""}</div>
+          <div class="node-title">${esc(m.name)} ${badge(m.priority, m.priority.toLowerCase())} ${badge(m.hours, "lvl")} ${badge(`QA ${qaDone}/${qas.length}`, "p2")}${done ? badge("已完成", "status-done") : ""}</div>
           <div class="node-desc">${linkTerms(esc(m.goal))}${nodeTags}</div>
         </div>
         <button class="btn small" data-toggle="${m.id}">${open ? "收起" : "展开"}</button>
       </div>
       ${open ? `<div class="module-body">
-        <div class="qa"><b>关键问题</b><br>${m.questions.map((q, i) => `${i + 1}. ${linkTerms(esc(q))}`).join("<br>")}</div>
+        <div class="qa"><b>关键问题 QA 清单</b><br>答案由调研预生成，可编辑补充；勾选表示已掌握。</div>
+        ${qas.map((qa, i) => {
+          const id = qaId(m, i);
+          const st = qaState(id);
+          const ans = st.answer != null ? st.answer : (qa.a || "（尚未预生成，可点击编辑补充）");
+          return `<div class="qa-row ${st.status === "done" ? "done" : ""}">
+            <input type="checkbox" class="checkbox" data-qa-done="${id}" ${st.status === "done" ? "checked" : ""}>
+            <div class="node-main">
+              <div class="qa-q">${i + 1}. ${linkTerms(esc(qa.q))}</div>
+              <div class="quiz-a" style="display:none" id="qa-a-${id}">${esc(ans)}</div>
+              <div class="qa-edit" style="display:none" id="qa-e-${id}">
+                <textarea class="qa-textarea" id="qa-t-${id}">${esc(ans)}</textarea>
+                <div class="quiz-actions"><button class="btn primary small" data-qa-save="${id}">保存</button><button class="btn small" data-qa-cancel="${id}">取消</button></div>
+              </div>
+              <div class="quiz-actions">
+                <button class="btn small" data-qa-toggle="${id}">展开答案</button>
+                <button class="btn small" data-qa-edit="${id}">编辑</button>
+                ${st.answer != null ? `<button class="btn small" data-qa-reset="${id}">重置预生成答案</button>` : ""}
+                <button class="btn small" data-qa-regen="${id}" data-q="${esc(qa.q)}" data-a="${esc(ans)}">重新生成</button>
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
         <div class="task-box"><b>实践任务：</b>${esc(m.task)}</div>
-        <div class="qa" style="color:var(--muted)"><b>完成标准：</b>能用自己的话回答全部关键问题，完成实践任务，并通过测验（正确率不低于 80%）。</div>
+        <div class="qa" style="color:var(--muted)"><b>完成标准：</b>QA 清单全部勾选，完成实践任务，并通过测验（正确率不低于 80%）。</div>
       </div>` : ""}
     </div>`;
   }).join("");
@@ -621,6 +732,119 @@ function bindViewEvents() {
       if (st.status === "mastered") st.mastery = Math.max(st.mastery, 4);
       saveState();
       render();
+    });
+  });
+  document.querySelectorAll("[data-detail]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      window.expandedDetail = window.expandedDetail === btn.dataset.detail ? null : btn.dataset.detail;
+      render();
+    });
+  });
+  const dNode = window.expandedDetail ? findNode(window.expandedDetail) : null;
+  if (dNode) {
+    document.querySelectorAll("[data-detail-init]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        persistDetails(dNode, [
+          { g: "构成", items: [] },
+          { g: "重点", items: [] },
+          { g: "易混淆", items: [] },
+          { g: "场景", items: [] },
+        ]);
+        render();
+      });
+    });
+    document.querySelectorAll("[data-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => { window.detailMode = btn.dataset.mode; render(); });
+    });
+    document.querySelectorAll("[data-item-done]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemDone.split(":").map(Number);
+        g[gi].items[ii][2] = g[gi].items[ii][2] ? 0 : 1; persistDetails(dNode, g); render();
+      });
+    });
+    document.querySelectorAll("[data-item-star]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemStar.split(":").map(Number);
+        g[gi].items[ii][1] = g[gi].items[ii][1] ? 0 : 1; persistDetails(dNode, g); render();
+      });
+    });
+    document.querySelectorAll("[data-item-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemEdit.split(":").map(Number);
+        const text = prompt("编辑条目", g[gi].items[ii][0]);
+        if (text != null && text.trim()) { g[gi].items[ii][0] = text.trim(); persistDetails(dNode, g); render(); }
+      });
+    });
+    document.querySelectorAll("[data-item-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemDel.split(":").map(Number);
+        g[gi].items.splice(ii, 1); persistDetails(dNode, g); render();
+      });
+    });
+    document.querySelectorAll("[data-group-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); g.splice(Number(btn.dataset.groupDel), 1); persistDetails(dNode, g); render();
+      });
+    });
+    const ga = document.querySelector("[data-group-add]");
+    if (ga) ga.addEventListener("click", () => {
+      const name = prompt("分组名称", "新分组");
+      if (name && name.trim()) { const g = nodeDetailsData(dNode); g.push({ g: name.trim(), items: [] }); persistDetails(dNode, g); render(); }
+    });
+    document.querySelectorAll("[data-add-input]").forEach((input) => {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          const g = nodeDetailsData(dNode);
+          g[Number(input.dataset.addInput)].items.push([input.value.trim(), 0, 0]);
+          persistDetails(dNode, g); render();
+        }
+      });
+    });
+    document.querySelectorAll("[data-mm]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const g = nodeDetailsData(dNode); const [gi, ii] = el.dataset.mm.split(":").map(Number);
+        g[gi].items[ii][2] = g[gi].items[ii][2] ? 0 : 1; persistDetails(dNode, g); render();
+      });
+    });
+  }
+  document.querySelectorAll("[data-qa-done]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      qaState(cb.dataset.qaDone).status = cb.checked ? "done" : "todo";
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-qa-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(`qa-a-${btn.dataset.qaToggle}`);
+      el.style.display = el.style.display === "none" ? "block" : "none";
+      btn.textContent = el.style.display === "none" ? "展开答案" : "收起答案";
+    });
+  });
+  document.querySelectorAll("[data-qa-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById(`qa-e-${btn.dataset.qaEdit}`).style.display = "block";
+    });
+  });
+  document.querySelectorAll("[data-qa-cancel]").forEach((btn) => {
+    btn.addEventListener("click", () => { document.getElementById(`qa-e-${btn.dataset.qaCancel}`).style.display = "none"; });
+  });
+  document.querySelectorAll("[data-qa-save]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      qaState(btn.dataset.qaSave).answer = document.getElementById(`qa-t-${btn.dataset.qaSave}`).value;
+      saveState(); render(); toast("答案已保存");
+    });
+  });
+  document.querySelectorAll("[data-qa-reset]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      delete qaState(btn.dataset.qaReset).answer;
+      saveState(); render(); toast("已恢复预生成答案");
+    });
+  });
+  document.querySelectorAll("[data-qa-regen]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const text = `请重新回答以下课程问题，要求面向产品经理、结论先行、3-5 句话、指出产品决策含义：\n问题：${btn.dataset.q}\n当前答案：${btn.dataset.a}`;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("重新生成提示词已复制，发给智能体即可"), () => toast("复制失败，请手动编辑"));
+      else toast("浏览器不支持复制，请手动编辑");
     });
   });
   document.querySelectorAll("[data-filter]").forEach((chip) => {
