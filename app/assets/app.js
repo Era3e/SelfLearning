@@ -12,6 +12,7 @@ const ICONS = {
   interviews: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
   iterate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   jd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  jdInbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
 };
 
 const STATUS = {
@@ -227,7 +228,7 @@ function renderNav() {
       <div class="nav-group-label">${esc(g)}</div>
       ${VIEWS.filter((v) => v.group === g).map((v) => `
         <button class="nav-item ${v.id === currentView ? "active" : ""}" data-view="${v.id}" title="${esc(v.desc)}">
-          <span class="nav-icon">${ICONS[v.id]}</span><span>${esc(v.name)}</span>
+          <span class="nav-icon">${ICONS[v.id] || ""}</span><span>${esc(v.name)}</span>
         </button>`).join("")}
     </div>`).join("");
   nav.querySelectorAll(".nav-item").forEach((btn) => {
