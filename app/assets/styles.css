@@ -88,6 +88,10 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 
 /* Lists */
 .node-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.node-row[data-node] { cursor: pointer; }
+.node-row[data-node]:hover { background: #f8fafc; }
+.node-row[data-node] .node-title::after { content: "点击展开明细"; font-size: 10.5px; color: #b6c2cf; font-weight: 400; margin-left: 8px; opacity: 0; transition: opacity .15s; }
+.node-row[data-node]:hover .node-title::after { opacity: 1; }
 .node-row:last-child { border-bottom: none; }
 .node-main { flex: 1; min-width: 0; }
 .node-title { font-weight: 600; font-size: 13.5px; color: var(--ink-strong); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -123,6 +127,16 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .status-icon.st-doing { color: var(--amber); border-color: #fde68a; background: #fffbeb; }
 .status-icon.st-mastered { color: var(--accent); border-color: #99f6e4; background: #f0fdfa; }
 .status-icon:hover { transform: scale(1.06); }
+.status-menu { position: fixed; z-index: 70; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.16); display: none; flex-direction: column; min-width: 148px; overflow: hidden; }
+.status-menu.show { display: flex; }
+.status-menu button { display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 9px 13px; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
+.status-menu button:hover { background: #f1f5f9; }
+.status-menu button.on { background: #f0fdfa; font-weight: 600; }
+.status-menu .sm-icon { width: 15px; height: 15px; display: inline-flex; }
+.status-menu .sm-icon svg { width: 15px; height: 15px; }
+.status-menu .todo .sm-icon { color: #94a3b8; }
+.status-menu .doing .sm-icon { color: var(--amber); }
+.status-menu .mastered .sm-icon { color: var(--accent); }
 .layer-block { margin-bottom: 18px; }
 .layer-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
 .layer-head h2 { font-size: 15px; font-weight: 700; color: var(--ink-strong); }

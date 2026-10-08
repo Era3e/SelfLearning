@@ -179,7 +179,42 @@ function init() {
   renderDomainSwitch();
   bindToolbar();
   buildTermUI();
+  buildStatusMenu();
   render();
+}
+
+function buildStatusMenu() {
+  if (document.getElementById("statusMenu")) return;
+  const menu = document.createElement("div");
+  menu.id = "statusMenu";
+  menu.className = "status-menu";
+  document.body.appendChild(menu);
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#statusMenu") && !e.target.closest(".status-icon")) menu.classList.remove("show");
+  });
+}
+
+function openStatusMenu(nodeId, anchor) {
+  const menu = document.getElementById("statusMenu");
+  const st = nodeState(nodeId);
+  menu.innerHTML = Object.entries(STATUS).map(([key, v]) =>
+    `<button class="${key === st.status ? "on" : ""} ${key}" data-status-set="${key}" data-node="${nodeId}">
+      <span class="sm-icon">${v.svg}</span>${v.label}${key === st.status ? "（当前）" : ""}
+    </button>`).join("");
+  menu.querySelectorAll("[data-status-set]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const s = nodeState(btn.dataset.node);
+      s.status = btn.dataset.statusSet;
+      if (s.status === "mastered") s.mastery = Math.max(s.mastery, 4);
+      saveState();
+      menu.classList.remove("show");
+      render();
+    });
+  });
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = Math.min(window.innerWidth - 150, Math.max(8, r.left - 60)) + "px";
+  menu.style.top = (r.bottom + 6) + "px";
+  menu.classList.add("show");
 }
 
 function renderNav() {
@@ -355,8 +390,7 @@ function nodeRow(n) {
       <div class="node-meta">${n.jd ? badge("JD 依据", "jd") : ""}<span style="font-size:12px;color:var(--muted)">${esc(n.jd || "")}</span></div>
       ${n.sources ? `<div class="node-meta">${badge("信息源", "p2")}<span style="font-size:12px;color:var(--muted)">${esc(n.sources)}</span></div>` : ""}
     </div>
-    <button class="btn small ${open ? "primary" : ""}" data-detail="${n.id}">${open ? "收起明细" : "明细"}</button>
-    <button class="status-icon st-${st.status}" data-cycle="${n.id}" title="${STATUS[st.status].label}，点击切换">${STATUS[st.status].svg}</button>
+    <button class="status-icon st-${st.status}" data-cycle="${n.id}" title="${STATUS[st.status].label}，点击修改状态">${STATUS[st.status].svg}</button>
     ${open ? renderDetailEditor(n) : ""}
   </div>`;
 }
@@ -726,17 +760,16 @@ function updateMarkFloat() {
 
 function bindViewEvents() {
   document.querySelectorAll("[data-cycle]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const st = nodeState(btn.dataset.cycle);
-      st.status = STATUS[st.status].next;
-      if (st.status === "mastered") st.mastery = Math.max(st.mastery, 4);
-      saveState();
-      render();
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openStatusMenu(btn.dataset.cycle, btn);
     });
   });
-  document.querySelectorAll("[data-detail]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      window.expandedDetail = window.expandedDetail === btn.dataset.detail ? null : btn.dataset.detail;
+  document.querySelectorAll(".node-row[data-node]").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, select, textarea, a, .term, .detail-box")) return;
+      const id = row.dataset.node;
+      window.expandedDetail = window.expandedDetail === id ? null : id;
       render();
     });
   });
