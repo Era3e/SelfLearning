@@ -755,17 +755,23 @@ function pickQuizQuestions(count) {
 function renderQuiz() {
   if (!currentQuiz.length) {
     return `<div class="card">
-      <h2>生成分层测验</h2>
-      <p>题目来自知识点的 L1-L4 分层题库，优先抽取 P0 和未掌握知识点。作答后自评「会 / 模糊 / 不会」，结果会自动更新知识点状态并安排复习。</p>
-      <div class="quiz-actions"><button class="btn primary" id="genQuiz">生成 8 题测验</button><button class="btn" id="genQuiz20">生成 20 题总测</button></div>
+      <h2>开始测验</h2>
+      <p>随机测试按优先级加权抽取 10 题；全量测试覆盖当前领域题库所有题目。作答后可由 LLM 评定「掌握 / 部分掌握 / 未掌握」，也可自评；评分后自动展示参考答案并安排复习。</p>
+      <div class="quiz-actions">
+        <button class="btn primary" data-quiz-mode="random">随机测试（10 题）</button>
+        <button class="btn" data-quiz-mode="all">全量测试（${domain().quizzes.length} 题）</button>
+      </div>
     </div>`;
   }
   return currentQuiz.map((q, i) => {
     const node = findNode(q.node);
+    const cfg = getLLM();
     return `<div class="quiz-item" data-quiz="${i}">
       <div class="node-title">${i + 1}. ${esc(q.q)} ${badge(q.level, "lvl")} ${badge(node ? node.name : "", "layer")}</div>
+      <textarea class="qa-textarea quiz-input" id="quiz-input-${i}" placeholder="输入你的答案，完成后点击评分；留空也可直接自评。"></textarea>
       <div class="quiz-a" id="answer-${i}" style="display:none">${linkTerms(esc(q.a))}</div>
       <div class="quiz-actions">
+        <button class="btn ${cfg ? "primary" : ""}" data-llm-grade="${i}" ${cfg ? "" : 'title="未配置 LLM，点击复制评分提示词"'}>LLM 评分</button>
         <button class="btn" data-reveal="${i}">显示答案</button>
         <button class="btn grade-pass" data-grade="${i}" data-val="pass">会</button>
         <button class="btn grade-fuzzy" data-grade="${i}" data-val="fuzzy">模糊</button>
@@ -773,7 +779,7 @@ function renderQuiz() {
       </div>
       <div class="quiz-result" id="result-${i}"></div>
     </div>`;
-  }).join("") + `<div class="quiz-actions"><button class="btn" id="regenQuiz">重新生成</button></div>`;
+  }).join("") + `<div class="quiz-actions"><button class="btn" id="regenQuiz">重新测试</button></div>`;
 }
 
 function applyGrade(nodeId, val) {
@@ -795,7 +801,11 @@ function applyGrade(nodeId, val) {
 
 function scheduleReview(nodeId, val) {
   const intervals = [1, 3, 7, 14, 30];
-  const r = prog().reviews[nodeId] || { intervalIdx: 0, streak: 0 };
+  const r = prog().reviews[nodeId] || { intervalIdx: 0, streak: 0, attempts: { pass: 0, fuzzy: 0, fail: 0 } };
+  if (!r.attempts) r.attempts = { pass: 0, fuzzy: 0, fail: 0 };
+  r.attempts[val] = (r.attempts[val] || 0) + 1;
+  r.lastVal = val;
+  r.lastAt = new Date().toISOString();
   if (val === "pass") {
     r.streak += 1;
     r.intervalIdx = Math.min(intervals.length - 1, r.intervalIdx + 1);
@@ -809,20 +819,78 @@ function scheduleReview(nodeId, val) {
   prog().reviews[nodeId] = r;
 }
 
+async function gradeWithLLM(i) {
+  const q = currentQuiz[i];
+  const input = document.getElementById(`quiz-input-${i}`);
+  const answer = input ? input.value.trim() : "";
+  const cfg = getLLM();
+  if (!answer) { toast("请先输入你的答案再评分"); return; }
+  if (!cfg) {
+    const text = `请按以下标准评定我的答案：掌握/部分掌握/未掌握，并说明扣分点。\n问题：${q.q}\n参考答案：${q.a}\n我的答案：${answer}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("未配置 LLM，已复制评分提示词，可在课程页配置 API"), () => toast("复制失败"));
+    else toast("未配置 LLM");
+    return;
+  }
+  toast("LLM 评分中...");
+  try {
+    const res = await fetch(cfg.base + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: '你是严格的笔试考官。只输出 JSON：{"level":"mastered|partial|none","comment":"一句话点评"}。mastered=关键点齐全，partial=方向对但有缺漏，none=概念错误或未答出。' },
+          { role: "user", content: `问题：${q.q}\n参考答案：${q.a}\n考生答案：${answer}` },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const raw = (data.choices[0].message.content || "").replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(raw);
+    const map = { mastered: "pass", partial: "fuzzy", none: "fail" };
+    const val = map[parsed.level] || "fuzzy";
+    applyGrade(q.node, val);
+    const el = document.getElementById(`answer-${i}`);
+    if (el) el.style.display = "block";
+    document.getElementById(`result-${i}`).innerHTML = `${parsed.level === "mastered" ? "掌握" : parsed.level === "partial" ? "部分掌握" : "未掌握"} · ${esc(parsed.comment || "")}（已安排复习）`;
+  } catch (e) {
+    toast("LLM 评分失败：" + e.message);
+  }
+}
+
 function renderReview() {
   const entries = Object.entries(prog().reviews)
-    .map(([nodeId, r]) => ({ nodeId, ...r, due: daysUntil(r.nextReview) }))
-    .sort((a, b) => a.due - b.due);
+    .map(([nodeId, r]) => {
+      const node = findNode(nodeId);
+      const pw = { P0: 3, P1: 2, P2: 1, P3: 0.5 }[node ? node.priority : "P2"] || 1;
+      const att = r.attempts || { pass: 0, fuzzy: 0, fail: 0 };
+      const total = att.pass + att.fuzzy + att.fail || 1;
+      const failRate = (att.fail + att.fuzzy * 0.5) / total;
+      const due = daysUntil(r.nextReview);
+      const overdue = Math.max(0, -due);
+      const score = pw + failRate * 3 + Math.min(2, overdue / 15);
+      const S = [1, 3, 7, 14, 30][r.intervalIdx || 0];
+      const daysSince = r.lastAt ? Math.max(0, (Date.now() - new Date(r.lastAt)) / 86400000) : 0;
+      const risk = Math.round((1 - Math.exp(-daysSince / S)) * 100);
+      return { nodeId, ...r, due, score, failRate, risk };
+    })
+    .sort((a, b) => b.score - a.score);
   if (!entries.length) {
     return `<div class="card"><div class="empty"><div class="big">✓</div>复习队列为空。<br>完成「成果检验」后，薄弱知识点会自动进入这里。</div></div>`;
   }
-  return `<div class="card"><h2>复习队列（共 ${entries.length} 项）</h2>` + entries.map((r) => {
+  return `<div class="card">
+    <h2>复习队列（共 ${entries.length} 项）</h2>
+    <p class="card glossary-hint">排序 = 知识优先级 + 历史错误率 + 逾期程度；遗忘风险按艾宾浩斯曲线 R=e^(-t/S) 估算，t 为距上次测验天数，S 为当前复习间隔（1/3/7/14/30 天）。答对升级间隔，答错回到 1 天。</p>
+  </div><div class="card">` + entries.map((r, idx) => {
     const node = findNode(r.nodeId);
     const q = domain().quizzes.find((x) => x.node === r.nodeId);
     const dueText = r.due <= 0 ? `今天到期` : `${fmtDate(r.nextReview)}（${r.due} 天后）`;
+    const att = r.attempts || { pass: 0, fuzzy: 0, fail: 0 };
     return `<div class="due-item">
       <div class="node-main">
-        <div class="node-title">${esc(node ? node.name : r.nodeId)} ${badge(r.due <= 0 ? dueText : "未到期", r.due <= 0 ? "p0" : "p3")} ${badge("掌握度 " + (nodeState(r.nodeId).mastery) + "/5", "lvl")}</div>
+        <div class="node-title">${idx + 1}. ${esc(node ? node.name : r.nodeId)} ${badge(r.due <= 0 ? dueText : "未到期", r.due <= 0 ? "p0" : "p3")} ${badge("遗忘风险 " + r.risk + "%", r.risk >= 60 ? "p0" : r.risk >= 30 ? "p1" : "p3")} ${badge(`对/疑/错 ${att.pass}/${att.fuzzy}/${att.fail}`, "lvl")} ${badge("优先分 " + r.score.toFixed(1), r.score >= 5 ? "p0" : "p1")}</div>
         <div class="node-desc">${q ? esc(q.q) : "回忆该知识点的核心概念、适用场景与常见误区。"}</div>
         <div class="quiz-a" style="display:none" id="rev-answer-${r.nodeId}">${q ? linkTerms(esc(q.a)) : "用自己的话讲清这个知识点，并说出一个应用场景和一个限制。"}</div>
         <div class="quiz-actions">
@@ -906,21 +974,34 @@ function renderDeep(n) {
 
 function renderInterviews() {
   const items = domain().interviews || [];
-  return `<div class="card" style="margin-bottom:14px">
-    <h2>题库说明</h2>
-    <p>题目来自公开面经与大厂真题合集（见「迭代机制」页的信息源），按产品经理视角改写为「面试官在考察什么 + 回答框架」。先自己作答，再展开参考框架，最后到关联知识点补弱。</p>
+  const demoBank = domain().demos || {};
+  const f = window.itvFilter || { company: "all", level: "all" };
+  const companies = [...new Set(items.map((i) => i.company))];
+  const levels = [...new Set(items.map((i) => i.level))];
+  const filtered = items.filter((i) => (f.company === "all" || i.company === f.company) && (f.level === "all" || i.level === f.level));
+  const chip = (key, val, label) => `<button class="chip ${f[key] === val ? "on" : ""}" data-itv-filter="${key}" data-val="${val}">${label}</button>`;
+  return `<div class="card filter-bar" style="margin-bottom:14px">
+    <div class="filter-group"><span class="filter-label">公司</span><div class="chip-row">${chip("company", "all", "全部")}${companies.map((c) => chip("company", c, c)).join("")}</div></div>
+    <div class="filter-group"><span class="filter-label">难度</span><div class="chip-row">${chip("level", "all", "全部")}${levels.map((l) => chip("level", l, l)).join("")}</div></div>
   </div>
   <div class="card">
-    <p class="glossary-hint" style="margin-bottom:6px">先自己作答，再展开回答框架；薄弱术语点击即可跳看解释。</p>
-    <h2>大厂真题（${items.length} 道）</h2>
-  ${items.map((it, i) => `
+    <p class="card glossary-hint">共 ${items.length} 道，当前 ${filtered.length} 道。先自己作答，再展开回答框架和示例回答；薄弱术语点击即可查看解释。</p>
+    <h2>大厂真题（${filtered.length} 道）</h2>
+  ${filtered.map((it, i) => {
+    const demo = demoBank[it.q] || it.demo;
+    return `
     <div class="jd-item">
       <div class="node-title">${i + 1}. ${esc(it.q)} ${badge(it.company, "jd")} ${badge(it.level, "lvl")}</div>
       <div class="node-meta">${(it.nodes || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "layer")).join(" ")}</div>
         <div class="node-desc" style="margin-top:6px"><b>考察点：</b>${linkTerms(esc(it.point))}</div>
       <div class="quiz-a" style="display:none" id="itv-${i}"><b>回答框架</b><br>${linkTerms(esc(it.framework))}</div>
-      <div class="quiz-actions"><button class="btn" data-itv="${i}">展开回答框架</button></div>
-    </div>`).join("")}
+      ${demo ? `<div class="quiz-a demo-a" style="display:none" id="demo-${i}"><b>示例回答</b><br>${linkTerms(esc(demo))}</div>` : ""}
+      <div class="quiz-actions">
+        <button class="mm-icon-btn qa-icon-btn" data-itv="${i}" title="展开回答框架"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        ${demo ? `<button class="mm-icon-btn qa-icon-btn" data-itv-demo="${i}" title="展开示例回答"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>` : ""}
+      </div>
+    </div>`;
+  }).join("")}
   </div>`;
 }
 
@@ -1228,12 +1309,14 @@ function bindViewEvents() {
       render();
     });
   });
-  const gen = document.getElementById("genQuiz");
-  if (gen) gen.addEventListener("click", () => { currentQuiz = pickQuizQuestions(8); render(); });
-  const gen20 = document.getElementById("genQuiz20");
-  if (gen20) gen20.addEventListener("click", () => { currentQuiz = pickQuizQuestions(20); render(); });
+  document.querySelectorAll("[data-quiz-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentQuiz = btn.dataset.quizMode === "random" ? pickQuizQuestions(10) : [...domain().quizzes].sort(() => Math.random() - 0.5);
+      render();
+    });
+  });
   const regen = document.getElementById("regenQuiz");
-  if (regen) regen.addEventListener("click", () => { currentQuiz = pickQuizQuestions(8); render(); });
+  if (regen) regen.addEventListener("click", () => { currentQuiz = pickQuizQuestions(10); render(); });
   document.querySelectorAll("[data-reveal]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const el = document.getElementById(`answer-${btn.dataset.reveal}`);
@@ -1246,9 +1329,13 @@ function bindViewEvents() {
       applyGrade(currentQuiz[i].node, btn.dataset.val);
       const label = { pass: "已记录：掌握，已安排复习", fuzzy: "已记录：模糊，近期重点复习", fail: "已记录：未掌握，明天复习并建议重学" }[btn.dataset.val];
       document.getElementById(`result-${i}`).textContent = label;
+      document.getElementById(`answer-${i}`).style.display = "block";
       btn.closest(".quiz-actions").querySelectorAll("button").forEach((b) => (b.disabled = false));
       btn.disabled = true;
     });
+  });
+  document.querySelectorAll("[data-llm-grade]").forEach((btn) => {
+    btn.addEventListener("click", () => gradeWithLLM(Number(btn.dataset.llmGrade)));
   });
   document.querySelectorAll("[data-rev-reveal]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1267,7 +1354,20 @@ function bindViewEvents() {
     btn.addEventListener("click", () => {
       const el = document.getElementById(`itv-${btn.dataset.itv}`);
       el.style.display = el.style.display === "none" ? "block" : "none";
-      btn.textContent = el.style.display === "none" ? "展开回答框架" : "收起回答框架";
+      btn.style.transform = el.style.display === "none" ? "" : "rotate(180deg)";
+    });
+  });
+  document.querySelectorAll("[data-itv-demo]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(`demo-${btn.dataset.itvDemo}`);
+      el.style.display = el.style.display === "none" ? "block" : "none";
+    });
+  });
+  document.querySelectorAll("[data-itv-filter]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      window.itvFilter = window.itvFilter || { company: "all", level: "all" };
+      window.itvFilter[chip.dataset.itvFilter] = chip.dataset.val;
+      render();
     });
   });
   const gsInput = document.getElementById("glossarySearch");
