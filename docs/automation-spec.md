@@ -21,14 +21,23 @@
 2. 招聘 JD：优先使用「JD 收集」页导出的待处理素材（用户上传截图并本地 OCR 的文本）；线上渠道仅做补充（公司官网、可公开访问的页面），遇到反爬或登录墙时跳过，不要强行抓取
 3. 权威技术信息源（官方文档、经典论文、开源项目 Release）
 
-对比 app/assets/data-ai.js 与 app/assets/data-robotics.js 中的现有
-nodes/modules/quizzes/interviews，执行：
+对比 app/assets/data-ai.js 与 app/assets/data-robotics.js 中的现有数据，涉及结构：
+nodes（知识点）、modules（课程模块）、quizzes（测验题）、interviews（面经真题）、
+glossary（术语表）、details（知识点明细树）、knowledge（原理解析与示例）、
+qaBank（课程关键问题 QA）、demos（面试示例回答）、jds（JD 来源清单）。
+
+执行：
 1. 新出现且高频（至少两个独立来源）的考点，补充进对应数组，
-   含 JD/面经依据、信息源、优先级、目标层级、测验题和回答框架。
-2. 如新知识无法归入现有模块，新增或调整课程模块（1-3 小时粒度）。
-3. 信息源有版本变化时（模型 API、协议、开源项目），同步更新描述与答案。
-4. 更新对应数据文件的 version 字段。
-5. 运行 node --check 校验 app/assets/*.js，并用浏览器打开
+   含 JD/面经依据、信息源、优先级、目标层级；同步补齐该考点在
+   glossary、details、knowledge、quizzes、interviews 中的配套内容。
+2. 如新知识无法归入现有模块，新增或调整课程模块（1-3 小时粒度），
+   并在 qaBank 中补齐每个关键问题的预生成答案。
+3. 新增高频面试题时，同步补充 interviews 的回答框架和 demos 的示例回答；
+   题目改写后注意 demos 采用归一化模糊匹配，键名同步调整。
+4. 信息源有版本变化时（模型 API、协议、开源项目），同步更新描述、
+   明细、原理解析与相关答案，保持内容一致。
+5. 更新对应数据文件的 version 字段。
+6. 运行 node --check 校验 app/assets/*.js，并用浏览器打开
    app/index.html 验证页面无错误。
 
 汇报规则：若没有值得入库的新知识，或仅有单一来源、无证据的传闻，
