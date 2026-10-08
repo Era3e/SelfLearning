@@ -959,35 +959,39 @@ function renderGlossaryView() {
   const q = (window.glossaryQuery || "").trim().toLowerCase();
   const items = glossary().filter((g) => !q || g.term.toLowerCase().includes(q) || g.def.toLowerCase().includes(q));
   return `
-  <div class="card" style="margin-bottom:14px">
-    <div class="glossary-head">
-      <h2>术语浏览</h2>
-      <div class="quiz-actions">
-        <input id="glossarySearch" placeholder="搜索术语或解释，如 Attention、遥操作..." value="${esc(window.glossaryQuery || "")}">
-        <button class="btn small" id="glossarySearchBtn">搜索</button>
+  <div class="glossary-layout">
+    <div class="glossary-main">
+      <div class="card">
+        <div class="glossary-head">
+          <h2>术语浏览</h2>
+          <input id="glossarySearch" placeholder="搜索术语或解释，输入即时过滤..." value="${esc(window.glossaryQuery || "")}">
+        </div>
+        <p class="glossary-hint">共 ${glossary().length} 条，当前 ${items.length} 条。正文术语点击查看解释；新名词选中文字后点「标记名词」。</p>
+        ${items.map((g) => `<div class="jd-item glossary-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
+        <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
       </div>
     </div>
-    <p class="glossary-hint">正文中的术语已自动标注，点击即可查看解释。遇到新名词，选中文字后点「标记名词」加入下方待补充清单。</p>
-    ${items.map((g) => `<div class="jd-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
-    <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
-  </div>
-  <div class="card"><h2>待补充名词（${pending.length}）</h2>
-    ${pending.length ? pending.map((p, i) => `
-      <div class="due-item"><div class="node-main">
-        <div class="node-title">${esc(p.term)} ${badge(new Date(p.addedAt).toLocaleDateString(), "p3")}</div>
-        <div class="quiz-a" style="display:none" id="pt-${i}">请为「${esc(domain().name)}」学习系统补充术语「${esc(p.term)}」：
+    <aside class="glossary-side">
+      <div class="card"><h2>待补充名词（${pending.length}）</h2>
+        ${pending.length ? pending.map((p, i) => `
+          <div class="due-item"><div class="node-main">
+            <div class="node-title">${esc(p.term)} ${badge(new Date(p.addedAt).toLocaleDateString(), "p3")}</div>
+            <div class="quiz-a" style="display:none" id="pt-${i}">请为「${esc(domain().name)}」学习系统补充术语「${esc(p.term)}」：
 1. 用 3-5 句话解释该术语，面向产品经理，避免数学推导。
 2. 说明它和当前正在学习的知识点的关系，以及为什么值得现在了解。
 3. 列出关联知识点编号，如果没有对应节点，建议新增节点并标注优先级。
 4. 补充一条可考察该术语的面试题和回答要点。
 5. 更新对应数据文件的 glossary 数组和 version 字段，并验证页面。</div>
-        <div class="quiz-actions">
-          <button class="btn" data-pt-reveal="${i}">生成补充提示词</button>
-          <button class="btn primary small" data-pt-copy="${i}" data-term="${esc(p.term)}">复制提示词</button>
-          <button class="btn small" data-pt-done="${esc(p.term)}">标记已补充</button>
-        </div>
-      </div></div>`).join("") : `<div class="empty">暂无待补充名词。学习中选中文字即可标记。</div>`}
-  </div>`;
+            <div class="quiz-actions">
+              <button class="btn small" data-pt-reveal="${i}">提示词</button>
+              <button class="btn primary small" data-pt-copy="${i}" data-term="${esc(p.term)}">复制</button>
+              <button class="btn small" data-pt-done="${esc(p.term)}">已补充</button>
+            </div>
+          </div></div>`).join("") : `<div class="empty glossary-empty">暂无待补充名词。学习中选中文字即可标记。</div>`}
+      </div>
+    </aside>
+  </div>
+  `;
 }
 
 function buildTermUI() {
@@ -1270,13 +1274,20 @@ function bindViewEvents() {
       btn.textContent = el.style.display === "none" ? "展开回答框架" : "收起回答框架";
     });
   });
-  const gsBtn = document.getElementById("glossarySearchBtn");
-  if (gsBtn) gsBtn.addEventListener("click", () => {
-    window.glossaryQuery = document.getElementById("glossarySearch").value;
-    render();
-  });
   const gsInput = document.getElementById("glossarySearch");
-  if (gsInput) gsInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { window.glossaryQuery = gsInput.value; render(); } });
+  if (gsInput) {
+    let gsTimer = null;
+    const applyQuery = () => {
+      const input = document.getElementById("glossarySearch");
+      if (!input || input.value === window.glossaryQuery) return;
+      window.glossaryQuery = input.value;
+      const pos = input.selectionStart;
+      render();
+      const next = document.getElementById("glossarySearch");
+      if (next) { next.focus(); next.setSelectionRange(pos, pos); }
+    };
+    gsInput.addEventListener("input", () => { clearTimeout(gsTimer); gsTimer = setTimeout(applyQuery, 160); });
+  }
   document.querySelectorAll("[data-pt-reveal]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const el = document.getElementById(`pt-${btn.dataset.ptReveal}`);
