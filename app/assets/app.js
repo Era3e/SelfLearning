@@ -446,6 +446,7 @@ function renderDetailEditor(n) {
     <span class="detail-title">知识点明细</span>
     <button class="btn small ${mode === "outline" ? "primary" : ""}" data-mode="outline">大纲</button>
     <button class="btn small ${mode === "mind" ? "primary" : ""}" data-mode="mind">脑图</button>
+    ${mode === "mind" ? `<button class="btn small" data-mm-export="png">导出 PNG</button><button class="btn small" data-mm-export="svg">导出 SVG</button>` : ""}
     <span class="detail-tip">大纲可编辑；脑图点击条目可标记掌握，★ 为重点</span>
   </div>`;
   if (mode === "mind") return `<div class="detail-box">${toolbar}${renderMindmap(n, groups)}</div>`;
@@ -473,6 +474,44 @@ function renderDetailEditor(n) {
       <input id="detailNewGroup" placeholder="新分组名称，如：案例">
       <button class="btn small" data-group-add>新增分组</button>
     </div></div>`;
+}
+
+function exportMindmap(format) {
+  const svg = document.querySelector(".mindmap");
+  const n = findNode(window.expandedDetail);
+  if (!svg || !n) return;
+  const clone = svg.cloneNode(true);
+  const vb = svg.viewBox.baseVal;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("width", vb.width);
+  clone.setAttribute("height", vb.height);
+  clone.setAttribute("style", "font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #fff;");
+  const source = new XMLSerializer().serializeToString(clone);
+  if (format === "svg") {
+    downloadBlob(new Blob([source], { type: "image/svg+xml;charset=utf-8" }), `${n.name}-脑图.svg`);
+    return;
+  }
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = vb.width * 2;
+    canvas.height = vb.height * 2;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => downloadBlob(blob, `${n.name}-脑图.png`), "image/png");
+  };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+}
+
+function downloadBlob(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`已导出：${filename}`);
 }
 
 function renderModules() {
@@ -885,6 +924,9 @@ function bindViewEvents() {
         const g = nodeDetailsData(dNode); const [gi, ii] = el.dataset.mm.split(":").map(Number);
         g[gi].items[ii][2] = g[gi].items[ii][2] ? 0 : 1; persistDetails(dNode, g); render();
       });
+    });
+    document.querySelectorAll("[data-mm-export]").forEach((btn) => {
+      btn.addEventListener("click", () => exportMindmap(btn.dataset.mmExport));
     });
   }
   document.querySelectorAll("[data-qa-done]").forEach((cb) => {
