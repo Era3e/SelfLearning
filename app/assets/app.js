@@ -436,7 +436,19 @@ function renderMindmap(n, groups) {
     });
     y += gH + groupGap;
   });
-  return `<svg class="mindmap" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${out.join("")}</svg>`;
+  if (window.mmZoomNode !== n.id) { window.mmZoomNode = n.id; window.mmZoom = 1; }
+  const z = window.mmZoom || 1;
+  return `<div class="mindmap-wrap" id="mindmapWrap">
+    <div class="mm-tools">
+      <button class="mm-icon-btn" data-mm-export="png" title="导出 PNG"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+      <button class="mm-icon-btn" data-mm-export="svg" title="导出 SVG"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg></button>
+      <button class="mm-icon-btn" id="mmReset" title="复位缩放"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></button>
+    </div>
+    <span class="mm-zoom" id="mmZoomLabel">${Math.round(z * 100)}%</span>
+    <div class="mindmap-inner" id="mindmapInner" style="width:${z * 100}%;height:${H * z}px">
+      <svg class="mindmap" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="transform:scale(${z});transform-origin:0 0">${out.join("")}</svg>
+    </div>
+  </div>`;
 }
 
 function renderDetailEditor(n) {
@@ -449,10 +461,10 @@ function renderDetailEditor(n) {
     <span class="detail-title">知识点明细</span>
     <button class="btn small ${mode === "outline" ? "primary" : ""}" data-mode="outline">大纲</button>
     <button class="btn small ${mode === "mind" ? "primary" : ""}" data-mode="mind">脑图</button>
-    ${mode === "mind" ? `<button class="btn small" data-mm-export="png">导出 PNG</button><button class="btn small" data-mm-export="svg">导出 SVG</button>` : ""}
     <span class="detail-tip">大纲可编辑；脑图点击条目可标记掌握，★ 为重点</span>
   </div>`;
-  if (mode === "mind") return `<div class="detail-box">${toolbar}${renderMindmap(n, groups)}</div>`;
+  if (mode === "mind") return `<div class="detail-box">${toolbar}${renderMindmap(n, groups)}
+    <p class="detail-tip" style="margin:8px 0 0">滚轮缩放画布；右上角图标可导出 PNG/SVG 或复位缩放。</p></div>`;
   const body = groups.map((g, gi) => {
     const total = g.items.length;
     const done = g.items.filter((it) => it[2]).length;
@@ -571,6 +583,20 @@ function renderJDInboxOnly() {
   if (currentView !== "jdInbox") return;
   document.getElementById("content").innerHTML = renderJDInbox();
   bindViewEvents();
+}
+
+function applyMindZoom(delta) {
+  window.mmZoom = Math.min(2.5, Math.max(0.4, (window.mmZoom || 1) + delta));
+  const inner = document.getElementById("mindmapInner");
+  const svg = document.querySelector("#mindmapWrap svg");
+  const label = document.getElementById("mmZoomLabel");
+  if (!inner || !svg || !label) return;
+  const z = window.mmZoom;
+  const h = svg.viewBox.baseVal.height;
+  svg.style.transform = `scale(${z})`;
+  inner.style.width = z * 100 + "%";
+  inner.style.height = h * z + "px";
+  label.textContent = Math.round(z * 100) + "%";
 }
 
 function renderModules() {
@@ -1040,6 +1066,17 @@ function bindViewEvents() {
     document.querySelectorAll("[data-mm-export]").forEach((btn) => {
       btn.addEventListener("click", () => exportMindmap(btn.dataset.mmExport));
     });
+    const mWrap = document.getElementById("mindmapWrap");
+    if (mWrap) {
+      mWrap.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        applyMindZoom(e.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+      document.getElementById("mmReset").addEventListener("click", () => {
+        window.mmZoom = 1;
+        applyMindZoom(0);
+      });
+    }
   }
   document.querySelectorAll("[data-qa-done]").forEach((cb) => {
     cb.addEventListener("change", () => {

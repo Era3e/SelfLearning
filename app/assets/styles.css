@@ -119,6 +119,13 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .detail-add-group { display: flex; gap: 8px; margin-top: 2px; }
 .detail-add-group input { flex: 1; border: 1px dashed var(--line); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; background: #fff; }
 .mindmap { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.mindmap-wrap { position: relative; overflow: auto; max-height: 540px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.mindmap-wrap .mindmap { border: none; border-radius: 0; display: block; }
+.mm-tools { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 12px rgba(15,23,42,.08); }
+.mm-icon-btn { width: 28px; height: 28px; border: none; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.mm-icon-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.mm-icon-btn svg { width: 15px; height: 15px; }
+.mm-zoom { position: absolute; bottom: 8px; right: 8px; z-index: 5; font-size: 11px; color: var(--muted); background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
 .mm-root { font-size: 14px; font-weight: 700; fill: #0f172a; }
 .mm-group { font-size: 12.5px; font-weight: 600; }
 .mm-item { font-size: 11.5px; cursor: pointer; }
