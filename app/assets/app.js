@@ -632,6 +632,34 @@ function getLLM() {
   try { return JSON.parse(localStorage.getItem("pm-learning-llm") || "null"); } catch (e) { return null; }
 }
 
+async function syncJDInbox() {
+  try {
+    const res = await fetch("/api/jd", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries: prog().jdInbox }),
+    });
+    window.jdSynced = res.ok;
+  } catch (e) {
+    window.jdSynced = false;
+  }
+}
+
+async function loadJDInbox() {
+  try {
+    const res = await fetch("/api/jd");
+    if (!res.ok) throw new Error("bad status");
+    const data = await res.json();
+    if (Array.isArray(data.entries)) {
+      prog().jdInbox = data.entries;
+      saveState();
+      window.jdSynced = true;
+    }
+  } catch (e) {
+    window.jdSynced = false;
+  }
+}
+
 async function regenAnswer(btn) {
   const cfg = getLLM();
   const prompt = `请重新回答以下课程问题，要求面向产品经理、结论先行、3-5 句话、指出产品决策含义：\n问题：${btn.dataset.q}\n当前答案：${btn.dataset.a}`;
@@ -914,6 +942,7 @@ function renderJDInbox() {
   const drafts = window.jdDrafts || [];
   const items = prog().jdInbox;
   const pending = items.filter((x) => x.status === "pending");
+  const syncBadge = window.jdSynced === true ? badge("已同步 inbox/jd-inbox.json", "status-done") : window.jdSynced === false ? badge("离线模式：仅本地", "p1") : "";
   return `
   <div class="card" style="margin-bottom:14px">
     <h2>上传招聘页截图</h2>
@@ -947,6 +976,7 @@ function renderJDInbox() {
     <div class="glossary-head">
       <h2>JD 素材库（待处理 ${pending.length} / 共 ${items.length}）</h2>
       <div class="quiz-actions">
+        ${syncBadge}
         <button class="btn small primary" id="jdExport" title="把所有待处理 JD 生成 Markdown 文件，发给定时任务或智能体提炼知识点、更新课程">导出待处理 JD</button>
       </div>
     </div>
@@ -1456,6 +1486,7 @@ function bindViewEvents() {
       try { saveState(); } catch (e) { toast("保存失败：本地存储空间不足，请删除旧素材后重试"); return; }
       window.jdDrafts.splice(i, 1);
       renderJDInboxOnly();
+      syncJDInbox();
       toast("已保存到 JD 素材库");
     });
   });
@@ -1475,7 +1506,7 @@ function bindViewEvents() {
   document.querySelectorAll("[data-jdi-done]").forEach((btn) => {
     btn.addEventListener("click", () => {
       prog().jdInbox[Number(btn.dataset.jdiDone)].status = "done";
-      saveState(); render(); toast("已标记入库");
+      saveState(); render(); syncJDInbox(); toast("已标记入库");
     });
   });
   document.querySelectorAll("[data-jdi-copy]").forEach((btn) => {
@@ -1487,9 +1518,13 @@ function bindViewEvents() {
   document.querySelectorAll("[data-jdi-del]").forEach((btn) => {
     btn.addEventListener("click", () => {
       prog().jdInbox.splice(Number(btn.dataset.jdiDel), 1);
-      saveState(); render(); toast("已删除");
+      saveState(); render(); syncJDInbox(); toast("已删除");
     });
   });
+  if (currentView === "jdInbox" && !window.jdLoaded) {
+    window.jdLoaded = true;
+    loadJDInbox().then(() => renderJDInboxOnly());
+  }
   document.querySelectorAll(".module-head").forEach((head) => {
     head.addEventListener("click", (e) => {
       if (e.target.closest("input, button")) return;
