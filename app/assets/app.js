@@ -366,12 +366,12 @@ function renderOverview() {
     <div class="card" style="margin-top:14px"><h2>学习路径</h2>${renderPathGraph()}
       <p class="detail-tip" style="margin:10px 0 0">主线先保 P0 必学，进阶通道可并行交叉；节点状态与课程 QA 自动联动，点击节点直达课程。</p></div>
     <div class="card loop-card" style="margin-top:14px"><h2>闭环说明</h2>
-      <div class="loop-steps">
-        <div class="loop-step"><span class="loop-num">1</span><b>定向</b><i>以 JD 与面经能力要求定义验收标准</i></div>
-        <div class="loop-step"><span class="loop-num">2</span><b>收集</b><i>知识地图四层组织，P0-P3 定优先级</i></div>
-        <div class="loop-step"><span class="loop-num">3</span><b>学习</b><i>模块课程 + QA 清单 + 明细三层内容</i></div>
-        <div class="loop-step"><span class="loop-num">4</span><b>检验</b><i>分层测验自评，结果自动回流队列</i></div>
-        <div class="loop-step"><span class="loop-num">5</span><b>迭代</b><i>间隔复习 + 薄弱点重学持续收敛</i></div>
+      <div class="loop-lines">
+        <p>1. <b>定向</b>：以 JD 与面经能力要求定义验收标准</p>
+        <p>2. <b>收集</b>：知识地图四层组织，P0-P3 确定优先级</p>
+        <p>3. <b>学习</b>：模块课程 + 关键问题 QA + 知识点明细</p>
+        <p>4. <b>检验</b>：分层测验自评，结果自动回流复习队列</p>
+        <p>5. <b>迭代</b>：间隔复习与薄弱点重学，掌握度持续收敛</p>
       </div>
       <p class="detail-tip" style="margin-top:10px">数据保存在浏览器本地，可通过左下角「···」导出/导入备份。</p>
     </div>`;
