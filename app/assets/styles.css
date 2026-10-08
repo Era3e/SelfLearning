@@ -247,11 +247,22 @@ select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; fo
 /* Associative learning */
 .term { color: #0f766e; border-bottom: 1px dashed #14b8a6; cursor: pointer; font-weight: 600; }
 .term:hover { background: var(--accent-soft); }
-.term-pop { position: fixed; right: 20px; bottom: 20px; width: 340px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: #10201f; color: #e6fffa; border: 1px solid #2dd4bf; border-radius: 8px; padding: 14px; display: none; z-index: 60; box-shadow: 0 12px 32px rgba(0,0,0,.25); }
+.term-pop { position: fixed; right: 20px; bottom: 20px; width: 360px; max-width: calc(100vw - 32px); max-height: 62vh; overflow: auto; background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: none; z-index: 60; box-shadow: 0 16px 40px rgba(15,23,42,.16); }
 .term-pop.show { display: block; }
-.term-pop p { color: #d3eae5; font-size: 13px; line-height: 1.7; margin: 8px 0; }
-.term-pop-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.term-pop .btn.small { background: transparent; color: #5eead4; border-color: #2dd4bf; }
+.term-pop.show { animation: termPopIn .18s ease-out; }
+@keyframes termPopIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.term-pop-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #eef2f6; }
+.term-pop-title { font-size: 15px; font-weight: 700; color: var(--ink-strong); line-height: 1.4; }
+.term-pop-close { width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; flex-shrink: 0; }
+.term-pop-close:hover { background: #f1f5f9; color: var(--ink); }
+.term-pop-close svg { width: 14px; height: 14px; }
+.term-pop-def { font-size: 13px; line-height: 1.8; color: var(--body-ink); margin: 12px 0 4px; }
+.term-pop-section { margin-top: 12px; }
+.term-pop-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: .04em; }
+.term-pop-rel { display: flex; gap: 6px; flex-wrap: wrap; }
+.term-rel-chip { border: 1px solid var(--blue-soft); background: #f8fbff; color: var(--blue); border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; }
+.term-rel-chip:hover { background: var(--blue-soft); }
+.term-pop-src { font-size: 12px; color: var(--muted); }
 .mark-float { position: fixed; z-index: 70; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
 .mark-float:hover { background: #0d9488; }
 #glossarySearch { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; }

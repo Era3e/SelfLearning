@@ -159,12 +159,26 @@ function showTerm(term) {
   const pop = document.getElementById("termPop");
   if (!g) return;
   const rel = (g.related || []).map((id) => findNode(id)).filter(Boolean);
-  pop.innerHTML = `<div class="term-pop-head"><b>${esc(g.term)}</b><button class="btn small" id="termClose">关闭</button></div>
-    <p>${linkTerms(esc(g.def))}</p>
-    ${rel.length ? `<div class="node-meta">${badge("关联知识点", "layer")}${rel.map((n) => badge(n.name, "p2")).join(" ")}</div>` : ""}
-    <div class="node-meta">${badge("来源", "jd")}<span style="font-size:12px;color:var(--muted)">${esc(g.source || "内置术语表")}</span></div>`;
+  pop.innerHTML = `
+    <div class="term-pop-head">
+      <div class="term-pop-title">${esc(g.term)}</div>
+      <button class="term-pop-close" id="termClose" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="term-pop-def">${linkTerms(esc(g.def))}</div>
+    ${rel.length ? `<div class="term-pop-section"><span class="term-pop-label">关联知识点</span><div class="term-pop-rel">${rel.map((n) => `<button class="term-rel-chip" data-term-node="${n.id}">${esc(n.name)}</button>`).join("")}</div></div>` : ""}
+    <div class="term-pop-section"><span class="term-pop-label">来源</span><span class="term-pop-src">${esc(g.source || "内置术语表")}</span></div>`;
   pop.classList.add("show");
   document.getElementById("termClose").addEventListener("click", () => pop.classList.remove("show"));
+  pop.querySelectorAll("[data-term-node]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const id = chip.dataset.termNode;
+      currentView = "map";
+      window.expandedDetail = id;
+      pop.classList.remove("show");
+      renderNav();
+      render();
+    });
+  });
 }
 
 function addPendingTerm(term) {
