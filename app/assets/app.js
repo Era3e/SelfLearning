@@ -958,20 +958,7 @@ function renderGlossaryView() {
   const pending = prog().pendingTerms.filter((p) => !p.done);
   const q = (window.glossaryQuery || "").trim().toLowerCase();
   const items = glossary().filter((g) => !q || g.term.toLowerCase().includes(q) || g.def.toLowerCase().includes(q));
-  return `
-  <div class="glossary-layout">
-    <div class="glossary-main">
-      <div class="card">
-        <div class="glossary-head">
-          <h2>术语浏览</h2>
-          <input id="glossarySearch" placeholder="搜索术语或解释，输入即时过滤..." value="${esc(window.glossaryQuery || "")}">
-        </div>
-        <p class="glossary-hint">共 ${glossary().length} 条，当前 ${items.length} 条。正文术语点击查看解释；新名词选中文字后点「标记名词」。</p>
-        ${items.map((g) => `<div class="jd-item glossary-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
-        <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
-      </div>
-    </div>
-    <aside class="glossary-side">
+  const pendingCard = `
       <div class="card"><h2>待补充名词（${pending.length}）</h2>
         ${pending.length ? pending.map((p, i) => `
           <div class="due-item"><div class="node-main">
@@ -988,8 +975,17 @@ function renderGlossaryView() {
               <button class="btn small" data-pt-done="${esc(p.term)}">已补充</button>
             </div>
           </div></div>`).join("") : `<div class="empty glossary-empty">暂无待补充名词。学习中选中文字即可标记。</div>`}
-      </div>
-    </aside>
+      </div>`;
+  return `
+  ${pendingCard}
+  <div class="card" style="margin-top:14px">
+    <div class="glossary-head">
+      <h2>术语浏览</h2>
+      <input id="glossarySearch" placeholder="搜索术语或解释，输入即时过滤..." value="${esc(window.glossaryQuery || "")}">
+    </div>
+    <p class="glossary-hint">共 ${glossary().length} 条，当前 ${items.length} 条。正文术语点击查看解释；新名词选中文字后点「标记名词」。</p>
+    ${items.map((g) => `<div class="jd-item glossary-item"><h3>${esc(g.term)}</h3><p>${linkTerms(esc(g.def))}</p>
+    <div class="node-meta">${(g.related || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div></div>`).join("") || `<div class="empty">没有匹配的术语。</div>`}
   </div>
   `;
 }
