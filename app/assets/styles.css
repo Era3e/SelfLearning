@@ -115,6 +115,9 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .mini-btn.ok.on { color: #fff; background: var(--accent); border-color: var(--accent); }
 .mini-btn.star.on { color: #fff; background: var(--amber); border-color: var(--amber); }
 .detail-input { width: 100%; border: 1px dashed var(--line); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; margin-top: 6px; background: #fff; }
+.detail-edit-input { flex: 1; min-width: 180px; border: 1px solid #99f6e4; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; }
+.detail-add-group { display: flex; gap: 8px; margin-top: 2px; }
+.detail-add-group input { flex: 1; border: 1px dashed var(--line); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; background: #fff; }
 .mindmap { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
 .mm-root { font-size: 14px; font-weight: 700; fill: #0f172a; }
 .mm-group { font-size: 12.5px; font-weight: 600; }

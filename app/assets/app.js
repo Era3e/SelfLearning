@@ -268,11 +268,21 @@ function bindToolbar() {
   document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
   document.getElementById("importFile").addEventListener("change", importProgress);
   document.getElementById("resetBtn").addEventListener("click", () => {
-    if (confirm(`确定重置「${domain().name}」的全部学习进度吗？此操作不可撤销。`)) {
+    const btn = document.getElementById("resetBtn");
+    if (btn.dataset.confirming !== "1") {
+      btn.dataset.confirming = "1";
+      btn.textContent = "再次点击确认重置";
+      toast("将清空当前领域进度，3 秒内再次点击确认");
+      setTimeout(() => { btn.dataset.confirming = ""; btn.textContent = "重置当前领域"; }, 3000);
+      return;
+    }
+    {
       state.progress[state.domain] = blankProgress();
       saveState();
       render();
       toast("已重置当前领域进度");
+      btn.dataset.confirming = "";
+      btn.textContent = "重置当前领域";
     }
   });
 }
@@ -402,22 +412,23 @@ function mmPath(x1, y1, x2, y2, color, w) {
 
 function renderMindmap(n, groups) {
   const palette = ["#0f766e", "#b45309", "#1d4ed8", "#be185d", "#6d28d9"];
-  const rowH = 24, groupGap = 16, W = 780;
+  const rowH = 24, groupGap = 18, W = 940;
   const leaves = groups.reduce((s, g) => s + g.items.length, 0);
   const H = Math.max(180, leaves * (rowH + 4) + groups.length * groupGap + 40);
-  const rootX = 18, gX = 180, lX = 330;
+  const rootX = 18, gX = 270, lX = 450;
   let y = 20;
-  let out = [`<text x="${rootX}" y="${H / 2 + 4}" class="mm-root">${esc(n.name)}</text>`];
+  const rootLabel = n.name.length > 10 ? n.name.slice(0, 9) + "…" : n.name;
+  let out = [`<text x="${rootX}" y="${H / 2 + 4}" class="mm-root">${esc(rootLabel)}</text>`];
   groups.forEach((g, gi) => {
     const c = palette[gi % palette.length];
     const gH = g.items.length * (rowH + 4);
     const gy = y + gH / 2;
-    out.push(mmPath(rootX + 110, H / 2, gX, gy, c, 1.6));
+    out.push(mmPath(rootX + 150, H / 2, gX, gy, c, 1.6));
     out.push(`<text x="${gX}" y="${gy + 4}" class="mm-group" fill="${c}">${esc(g.g)}</text>`);
     g.items.forEach((it, ii) => {
       const ly = y + ii * (rowH + 4) + 12;
-      out.push(mmPath(gX + 52, gy, lX, ly, c, 0.8));
-      const label = (it[1] ? "★ " : "") + (it[0].length > 34 ? it[0].slice(0, 33) + "…" : it[0]);
+    out.push(mmPath(gX + 62, gy, lX, ly, c, 0.8));
+      const label = (it[1] ? "★ " : "") + (it[0].length > 28 ? it[0].slice(0, 27) + "…" : it[0]);
       out.push(`<text x="${lX}" y="${ly + 4}" class="mm-item ${it[2] ? "mm-done" : ""}" data-mm="${gi}:${ii}" fill="${it[2] ? "#94a3b8" : "#334155"}">${esc(label)}</text>`);
     });
     y += gH + groupGap;
@@ -446,14 +457,22 @@ function renderDetailEditor(n) {
       ${g.items.map((it, ii) => `<div class="detail-item ${it[2] ? "done" : ""}">
         <button class="mini-btn ok ${it[2] ? "on" : ""}" data-item-done="${gi}:${ii}" title="标记掌握">✓</button>
         <button class="mini-btn star ${it[1] ? "on" : ""}" data-item-star="${gi}:${ii}" title="标为重点">★</button>
-        <span class="detail-text ${it[1] ? "star" : ""}">${esc(it[0])}</span>
-        <button class="mini-btn" data-item-edit="${gi}:${ii}" title="编辑">✎</button>
-        <button class="mini-btn" data-item-del="${gi}:${ii}" title="删除">×</button>
+        ${window.editingItem === `${gi}:${ii}` ? `
+          <input class="detail-edit-input" id="detailEditInput" value="${esc(it[0])}">
+          <button class="btn primary small" data-item-save="${gi}:${ii}">保存</button>
+          <button class="btn small" data-item-cancel>取消</button>` : `
+          <span class="detail-text ${it[1] ? "star" : ""}">${esc(it[0])}</span>
+          <button class="mini-btn" data-item-edit="${gi}:${ii}" title="编辑">✎</button>
+          <button class="mini-btn" data-item-del="${gi}:${ii}" title="删除">×</button>`}
       </div>`).join("")}
       <input class="detail-input" data-add-input="${gi}" placeholder="新增条目，回车保存">
     </div>`;
   }).join("");
-  return `<div class="detail-box">${toolbar}${body}<div class="quiz-actions"><button class="btn small" data-group-add>新增分组</button></div></div>`;
+  return `<div class="detail-box">${toolbar}${body}
+    <div class="detail-add-group">
+      <input id="detailNewGroup" placeholder="新分组名称，如：案例">
+      <button class="btn small" data-group-add>新增分组</button>
+    </div></div>`;
 }
 
 function renderModules() {
@@ -803,10 +822,31 @@ function bindViewEvents() {
     });
     document.querySelectorAll("[data-item-edit]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemEdit.split(":").map(Number);
-        const text = prompt("编辑条目", g[gi].items[ii][0]);
-        if (text != null && text.trim()) { g[gi].items[ii][0] = text.trim(); persistDetails(dNode, g); render(); }
+        window.editingItem = btn.dataset.itemEdit;
+        render();
+        const input = document.getElementById("detailEditInput");
+        if (input) { input.focus(); input.select(); }
       });
+    });
+    document.querySelectorAll("[data-item-save]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById("detailEditInput");
+        if (input && input.value.trim()) {
+          const g = nodeDetailsData(dNode); const [gi, ii] = btn.dataset.itemSave.split(":").map(Number);
+          g[gi].items[ii][0] = input.value.trim();
+          persistDetails(dNode, g);
+        }
+        window.editingItem = null;
+        render();
+      });
+    });
+    document.querySelectorAll("[data-item-cancel]").forEach((btn) => {
+      btn.addEventListener("click", () => { window.editingItem = null; render(); });
+    });
+    const editInput = document.getElementById("detailEditInput");
+    if (editInput) editInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.querySelector("[data-item-save]").click();
+      if (e.key === "Escape") { window.editingItem = null; render(); }
     });
     document.querySelectorAll("[data-item-del]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -821,9 +861,16 @@ function bindViewEvents() {
     });
     const ga = document.querySelector("[data-group-add]");
     if (ga) ga.addEventListener("click", () => {
-      const name = prompt("分组名称", "新分组");
-      if (name && name.trim()) { const g = nodeDetailsData(dNode); g.push({ g: name.trim(), items: [] }); persistDetails(dNode, g); render(); }
+      const input = document.getElementById("detailNewGroup");
+      if (input && input.value.trim()) {
+        const g = nodeDetailsData(dNode);
+        g.push({ g: input.value.trim(), items: [] });
+        persistDetails(dNode, g);
+        render();
+      }
     });
+    const ngInput = document.getElementById("detailNewGroup");
+    if (ngInput) ngInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && ngInput.value.trim()) ga.click(); });
     document.querySelectorAll("[data-add-input]").forEach((input) => {
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && input.value.trim()) {
