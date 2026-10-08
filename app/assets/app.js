@@ -30,6 +30,7 @@ const VIEWS = [
   { id: "interviews", name: "面试题库", desc: "大厂真实面经题目，含回答框架与关联知识点", group: "检验复习" },
   { id: "iterate", name: "迭代机制", desc: "知识库如何随面经、JD 和学习结果持续更新", group: "系统" },
   { id: "jd", name: "JD 参考", desc: "招聘 JD 调研结论与知识地图的对应关系", group: "系统" },
+  { id: "jdInbox", name: "JD 收集", desc: "上传招聘页截图，本地 OCR 转文本后补充进知识库", group: "系统" },
 ];
 
 let state = loadState();
@@ -49,7 +50,7 @@ function loadState() {
 }
 
 function blankProgress() {
-  return { nodes: {}, modules: {}, reviews: {}, quizLog: [], pendingTerms: [], details: {}, qa: {} };
+  return { nodes: {}, modules: {}, reviews: {}, quizLog: [], pendingTerms: [], details: {}, qa: {}, jdInbox: [] };
 }
 
 function saveState() {
@@ -65,6 +66,7 @@ function prog() {
   if (!Array.isArray(progSafe().pendingTerms)) progSafe().pendingTerms = [];
   if (!progSafe().details) progSafe().details = {};
   if (!progSafe().qa) progSafe().qa = {};
+  if (!Array.isArray(progSafe().jdInbox)) progSafe().jdInbox = [];
   return state.progress[state.domain];
 }
 
@@ -334,6 +336,7 @@ function render() {
   else if (currentView === "interviews") content.innerHTML = renderInterviews();
   else if (currentView === "iterate") content.innerHTML = renderIterate();
   else if (currentView === "jd") content.innerHTML = renderJD();
+  else if (currentView === "jdInbox") content.innerHTML = renderJDInbox();
   bindViewEvents();
 }
 
@@ -514,6 +517,62 @@ function downloadBlob(blob, filename) {
   toast(`已导出：${filename}`);
 }
 
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 1000 / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.65));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function ensureTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("OCR 组件加载失败，请检查网络或手动粘贴文本"));
+    document.head.appendChild(s);
+  });
+}
+
+async function ocrDraft(i) {
+  const d = (window.jdDrafts || [])[i];
+  if (!d || !d.image) return;
+  d.ocrState = "OCR 引擎加载中...";
+  renderJDInboxOnly();
+  try {
+    await ensureTesseract();
+    d.ocrState = "OCR 识别中，首次需下载中文模型...";
+    renderJDInboxOnly();
+    const result = await Tesseract.recognize(d.image, "chi_sim+eng", {
+      logger: (m) => { if (m.status === "recognizing text") d.ocrState = `识别中 ${Math.round(m.progress * 100)}%`; },
+    });
+    d.text = result.data.text.replace(/[ \t]+\n/g, "\n").trim();
+    d.ocrState = "OCR 完成，请检查修正";
+  } catch (e) {
+    d.ocrState = e.message || "OCR 失败";
+  }
+  renderJDInboxOnly();
+}
+
+function renderJDInboxOnly() {
+  if (currentView !== "jdInbox") return;
+  document.getElementById("content").innerHTML = renderJDInbox();
+  bindViewEvents();
+}
+
 function renderModules() {
   return domain().modules.map((m) => {
     const done = (prog().modules[m.id] || {}).done;
@@ -672,6 +731,59 @@ function renderJD() {
     <div class="jd-item"><h3>${esc(j.company)} · ${esc(j.role)}</h3><p>${esc(j.points)}</p></div>`).join("")}</div>`;
 }
 
+function renderJDInbox() {
+  const drafts = window.jdDrafts || [];
+  const items = prog().jdInbox;
+  const pending = items.filter((x) => x.status === "pending");
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <h2>上传招聘页截图</h2>
+    <p>选择一张或多张 JD 截图，系统会在浏览器本地 OCR 识别为文本；识别结果可编辑修正，确认后保存到素材库。图片压缩后仅存在本机。</p>
+    <div class="quiz-actions">
+      <input type="file" id="jdFile" accept="image/*" multiple>
+      <button class="btn small" id="jdPasteMode">无截图？直接粘贴文本</button>
+    </div>
+    <div id="jdDraftBox">${drafts.map((d, i) => `
+      <div class="jd-draft">
+        <div class="jd-draft-head">
+          ${d.image ? `<img src="${d.image}" class="jd-thumb">` : ""}
+          <div class="jd-fields">
+            <input id="jd-company-${i}" placeholder="公司，如：京东" value="${esc(d.company || "")}">
+            <input id="jd-role-${i}" placeholder="岗位，如：AI Agent 产品经理" value="${esc(d.role || "")}">
+            <input id="jd-source-${i}" placeholder="来源，如：BOSS直聘截图" value="${esc(d.source || "")}">
+          </div>
+        </div>
+        <textarea id="jd-text-${i}" class="qa-textarea" placeholder="${d.image ? "OCR 识别中或完成后可在此修正..." : "粘贴 JD 正文..."}">${esc(d.text || "")}</textarea>
+        <div class="quiz-actions">
+          ${d.image ? `<button class="btn small" data-ocr="${i}">重新 OCR</button>` : ""}
+          <button class="btn primary small" data-jd-save="${i}">保存到素材库</button>
+          <button class="btn small" data-jd-discard="${i}">丢弃</button>
+          ${d.ocrState ? `<span class="ocr-state">${esc(d.ocrState)}</span>` : ""}
+        </div>
+      </div>`).join("")}
+    </div>
+  </div>
+  <div class="card">
+    <div class="glossary-head">
+      <h2>JD 素材库（待处理 ${pending.length} / 共 ${items.length}）</h2>
+      <div class="quiz-actions">
+        <button class="btn small primary" id="jdExport">导出待处理 JD</button>
+      </div>
+    </div>
+    ${items.length ? items.map((it, i) => `
+      <div class="jd-item">
+        <div class="node-title">${esc(it.company || "未填公司")} · ${esc(it.role || "未填岗位")} ${badge(it.status === "pending" ? "待处理" : "已入库", it.status === "pending" ? "p0" : "status-done")} ${badge(it.date, "p3")}</div>
+        <div class="quiz-a" style="display:none" id="jdi-${i}">${esc(it.text)}</div>
+        <div class="quiz-actions">
+          <button class="btn small" data-jdi-toggle="${i}">查看全文</button>
+          <button class="btn small" data-jdi-done="${i}">标记已入库</button>
+          <button class="btn small" data-jdi-copy="${i}">复制全文</button>
+          <button class="btn small" data-jdi-del="${i}">删除</button>
+        </div>
+      </div>`).join("") : `<div class="empty">素材库为空。上传截图或粘贴文本即可开始。</div>`}
+  </div>`;
+}
+
 function renderInterviews() {
   const items = domain().interviews || [];
   return `<div class="card" style="margin-bottom:14px">
@@ -698,7 +810,7 @@ function renderIterate() {
   <div class="grid cols-2">
     <div class="card"><h2>四条自迭代回路</h2>
       <div class="jd-item"><h3>1. 面经回路</h3><p>定期补充大厂真题和面经（建议每两周一次）。新题先归类到知识点；若无对应知识点，说明知识地图有缺口，先补节点再补课程和测验。面试题出现频率直接驱动知识点优先级升降。</p></div>
-      <div class="jd-item"><h3>2. JD 回路</h3><p>每轮求职季（春秋招前后）重新调研目标岗位 JD，对比当前知识地图。新增高频要求升级为 P0/P1；连续两轮消失的要求降级；跨公司共性要求沉淀为新模块。</p></div>
+      <div class="jd-item"><h3>2. JD 回路</h3><p>每轮求职季（春秋招前后）重新调研目标岗位 JD，对比当前知识地图。线上渠道受限时，用「JD 收集」页上传招聘页截图，本地 OCR 转文本后统一入库。新增高频要求升级为 P0/P1；连续两轮消失的要求降级；跨公司共性要求沉淀为新模块。</p></div>
       <div class="jd-item"><h3>3. 学习回路</h3><p>测验「不会」和复习「忘了」的知识点自动回流队列；连续失败说明课程设计有问题，需要拆小模块、补充例子或更换信息源，而不是单纯重读。</p></div>
       <div class="jd-item"><h3>4. 信息源回路</h3><p>基础层知识绑定权威信息源（官方文档、经典教材、开源项目）。每月检查版本变化：API、模型、协议（如 MCP）更新后同步更新知识点描述和题目答案。</p></div>
     </div>
@@ -1058,6 +1170,81 @@ function bindViewEvents() {
       saveState();
       render();
       toast("已移入已补充列表");
+    });
+  });
+  const jdFile = document.getElementById("jdFile");
+  if (jdFile) jdFile.addEventListener("change", async () => {
+    window.jdDrafts = window.jdDrafts || [];
+    for (const file of jdFile.files) {
+      const image = await compressImage(file);
+      window.jdDrafts.push({ image, company: "", role: "", source: "截图上传", text: "", ocrState: "等待 OCR" });
+    }
+    jdFile.value = "";
+    renderJDInboxOnly();
+    (window.jdDrafts || []).forEach((_, i) => { if (!window.jdDrafts[i].ocrDone) { window.jdDrafts[i].ocrDone = true; ocrDraft(i); } });
+  });
+  const jdPaste = document.getElementById("jdPasteMode");
+  if (jdPaste) jdPaste.addEventListener("click", () => {
+    window.jdDrafts = window.jdDrafts || [];
+    window.jdDrafts.push({ image: null, company: "", role: "", source: "手动粘贴", text: "", ocrState: "" });
+    renderJDInboxOnly();
+  });
+  document.querySelectorAll("[data-ocr]").forEach((btn) => {
+    btn.addEventListener("click", () => ocrDraft(Number(btn.dataset.ocr)));
+  });
+  document.querySelectorAll("[data-jd-discard]").forEach((btn) => {
+    btn.addEventListener("click", () => { window.jdDrafts.splice(Number(btn.dataset.jdDiscard), 1); renderJDInboxOnly(); });
+  });
+  document.querySelectorAll("[data-jd-save]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.jdSave);
+      const d = window.jdDrafts[i];
+      const entry = {
+        id: `jd-${Date.now()}-${i}`,
+        company: document.getElementById(`jd-company-${i}`).value.trim(),
+        role: document.getElementById(`jd-role-${i}`).value.trim(),
+        source: document.getElementById(`jd-source-${i}`).value.trim(),
+        text: document.getElementById(`jd-text-${i}`).value.trim(),
+        date: new Date().toISOString().slice(0, 10),
+        status: "pending",
+      };
+      if (!entry.text) { toast("请先识别或粘贴 JD 文本"); return; }
+      prog().jdInbox.push(entry);
+      try { saveState(); } catch (e) { toast("保存失败：本地存储空间不足，请删除旧素材后重试"); return; }
+      window.jdDrafts.splice(i, 1);
+      renderJDInboxOnly();
+      toast("已保存到 JD 素材库");
+    });
+  });
+  const jdExport = document.getElementById("jdExport");
+  if (jdExport) jdExport.addEventListener("click", () => {
+    const pending = prog().jdInbox.filter((x) => x.status === "pending");
+    if (!pending.length) { toast("没有待处理的 JD"); return; }
+    const md = pending.map((x) => `## ${x.company || "未填公司"} · ${x.role || "未填岗位"}\n来源：${x.source} | 日期：${x.date}\n\n${x.text}`).join("\n\n---\n\n");
+    downloadBlob(new Blob([md], { type: "text/markdown;charset=utf-8" }), `待处理JD-${new Date().toISOString().slice(0, 10)}.md`);
+  });
+  document.querySelectorAll("[data-jdi-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(`jdi-${btn.dataset.jdiToggle}`);
+      el.style.display = el.style.display === "none" ? "block" : "none";
+    });
+  });
+  document.querySelectorAll("[data-jdi-done]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      prog().jdInbox[Number(btn.dataset.jdiDone)].status = "done";
+      saveState(); render(); toast("已标记入库");
+    });
+  });
+  document.querySelectorAll("[data-jdi-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const text = prog().jdInbox[Number(btn.dataset.jdiCopy)].text;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("JD 全文已复制"), () => toast("复制失败"));
+    });
+  });
+  document.querySelectorAll("[data-jdi-del]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      prog().jdInbox.splice(Number(btn.dataset.jdiDel), 1);
+      saveState(); render(); toast("已删除");
     });
   });
 }

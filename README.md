@@ -41,6 +41,10 @@ app/index.html
 1. **自动化**：定时任务每两周调研最新面经、JD 和信息源，自动补充知识点、课程、测验和真题；无实质变化则静默结束。任务配置见 [docs/automation-spec.md](docs/automation-spec.md)。
 2. **定制化**：随时在对话中提出新增需求（如「补充医疗场景具身智能」），由智能体调研后按同一数据结构入库，提示词模板见 [prompts/learning-prompts.md](prompts/learning-prompts.md)。
 
+## JD 截图收集
+
+招聘网站多有反爬限制，「JD 收集」页支持手动上传 JD 截图：图片在浏览器本地压缩并 OCR 识别为可编辑文本，确认后存入素材库，可一键导出为 Markdown 交给定时任务或智能体处理，全程不依赖爬虫。
+
 ## 目录结构
 
 ```text
