@@ -12,6 +12,7 @@ const ICONS = {
   interviews: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
   iterate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   jd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  jdIntel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   jdInbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
 };
 
@@ -30,6 +31,7 @@ const VIEWS = [
   { id: "review", name: "复习迭代", desc: "间隔复习队列，按 1/3/7/14/30 天滚动", group: "检验复习" },
   { id: "interviews", name: "面试题库", desc: "大厂真实面经题目，含回答框架与关联知识点", group: "检验复习" },
   { id: "iterate", name: "迭代机制", desc: "知识库如何随面经、JD 和学习结果持续更新", group: "系统" },
+  { id: "jdIntel", name: "岗位情报", desc: "结构化 JD、证据分级、能力频次与来源健康", group: "系统" },
   { id: "jd", name: "JD 参考", desc: "招聘 JD 调研结论与知识地图的对应关系", group: "系统" },
   { id: "jdInbox", name: "JD 收集", desc: "上传招聘页截图，本地 OCR 转文本后补充进知识库", group: "系统" },
 ];
@@ -42,12 +44,31 @@ let expandedModule = null;
 function loadState() {
   const saved = localStorage.getItem(STORE_KEY);
   if (saved) {
-    try { return JSON.parse(saved); } catch (e) { /* fallthrough */ }
+    try { return sanitizeState(JSON.parse(saved)); } catch (e) { /* fallthrough */ }
   }
   return {
     domain: "ai",
     progress: { ai: blankProgress(), robotics: blankProgress() },
   };
+}
+
+function safeHttpUrl(url) {
+  const value = String(url || "").trim();
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function sanitizeState(input) {
+  Object.values(input.progress || {}).forEach((progress) => {
+    (progress.jdInbox || []).forEach((item) => {
+      item.sourceUrl = safeHttpUrl(item.sourceUrl);
+    });
+  });
+  return input;
 }
 
 function blankProgress() {
@@ -321,7 +342,7 @@ function importProgress(ev) {
     try {
       const data = JSON.parse(reader.result);
       if (!data.domain || !data.progress) throw new Error("invalid");
-      state = data;
+      state = sanitizeState(data);
       saveState();
       renderDomainSwitch();
       render();
@@ -350,6 +371,7 @@ function render() {
   else if (currentView === "review") content.innerHTML = renderReview();
   else if (currentView === "interviews") content.innerHTML = renderInterviews();
   else if (currentView === "iterate") content.innerHTML = renderIterate();
+  else if (currentView === "jdIntel") content.innerHTML = renderJDIntelligence();
   else if (currentView === "jd") content.innerHTML = renderJD();
   else if (currentView === "jdInbox") content.innerHTML = renderJDInbox();
   bindViewEvents();
@@ -657,6 +679,7 @@ async function syncJDInbox() {
   } catch (e) {
     window.jdSynced = false;
   }
+  if (currentView === "jdInbox") renderJDInboxOnly();
 }
 
 async function loadJDInbox() {
@@ -665,12 +688,26 @@ async function loadJDInbox() {
     if (!res.ok) throw new Error("bad status");
     const data = await res.json();
     if (Array.isArray(data.entries)) {
-      prog().jdInbox = data.entries;
+      prog().jdInbox = data.entries.map((item) => ({ ...item, sourceUrl: safeHttpUrl(item.sourceUrl) }));
       saveState();
+      syncJDInbox();
       window.jdSynced = true;
     }
   } catch (e) {
     window.jdSynced = false;
+  }
+}
+
+async function loadSourceHealth() {
+  try {
+    const res = await fetch("/api/source-health");
+    if (!res.ok) throw new Error("bad status");
+    const data = await res.json();
+    window.jdSourceHealth = Array.isArray(data.sources) ? data : { ...data, sources: [] };
+    window.jdSourceHealthSynced = true;
+  } catch (e) {
+    window.jdSourceHealth = { sources: [] };
+    window.jdSourceHealthSynced = false;
   }
 }
 
@@ -946,6 +983,179 @@ function renderReview() {
   }).join("") + "</div>";
 }
 
+function jdIntelData() { return JD_INTELLIGENCE; }
+
+function sourceById(id) { return jdIntelData().sources.find((s) => s.id === id); }
+
+function sourceStatusMeta(status) { return jdIntelData().sourceStatusPolicy.find((s) => s.id === status) || { label: status || "未验证", color: "p3" }; }
+
+function currentJDRecords() {
+  return jdIntelData().corpus.filter((x) => x.domain === state.domain);
+}
+
+function capabilityStats() {
+  const records = currentJDRecords();
+  const map = new Map();
+  records.forEach((r) => {
+    (r.skills || []).forEach((skill) => {
+      const item = map.get(skill) || { capability: skill, jdCount: 0, evidence: 0, rising: 0 };
+      item.jdCount += 1;
+      item.evidence += r.evidenceGrade === "A" ? 3 : r.evidenceGrade === "B" ? 2 : 1;
+      if (r.trend === "rising") item.rising += 1;
+      map.set(skill, item);
+    });
+  });
+  return [...map.values()].sort((a, b) => b.evidence - a.evidence || b.rising - a.rising || b.jdCount - a.jdCount);
+}
+
+function sourceAccessMap() {
+  const result = new Map(jdIntelData().sources.map((s) => [s.id, { ...s, ...s.access }]));
+  const runtime = window.jdSourceHealth || {};
+  (runtime.sources || []).forEach((item) => {
+    if (result.has(item.id)) result.set(item.id, { ...result.get(item.id), ...item, access: { ...result.get(item.id).access, ...item } });
+  });
+  return result;
+}
+
+function renderSourceGroup(source) {
+  const access = source.access || {};
+  const status = sourceStatusMeta(access.status);
+  const search = source.searchUrl
+    ? `<a class="table-link" href="${esc(source.searchUrl.replace("{query}", encodeURIComponent(state.domain === "ai" ? "AI产品经理" : "具身智能产品经理")))}" target="_blank" rel="noopener noreferrer">搜索入口</a>`
+    : "";
+  return `<div class="source-row">
+    <div>
+      <div class="source-name">${esc(source.name)}</div>
+      <div class="source-meta">${badge(source.grade + " 级", source.grade === "A" ? "status-done" : source.grade === "B" ? "p2" : "p1")} ${badge(source.category === "employer" ? "公司官网" : source.category === "job_board" ? "招聘平台" : source.category === "campus" ? "校招" : source.category === "interview" ? "面经" : source.category === "search_engine" ? "搜索引擎" : "社区", "layer")} ${badge(status.label, status.color)}</div>
+      ${access.note ? `<div class="source-note">${esc(access.note)}</div>` : ""}
+    </div>
+    <div class="source-actions"><a class="table-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">官网</a>${search}</div>
+  </div>`;
+}
+
+function renderJDIntelligence() {
+  const data = jdIntelData();
+  const records = currentJDRecords();
+  const leads = data.leads.filter((x) => x.domain === state.domain);
+  const sources = [...sourceAccessMap().values()].filter((s) => s.domains.includes(state.domain));
+  const gradeCounts = data.evidencePolicy.map((g) => ({ ...g, count: records.filter((r) => r.evidenceGrade === g.grade).length }));
+  const statusCounts = data.sourceStatusPolicy.map((s) => ({ ...s, count: sources.filter((x) => (x.access || {}).status === s.id).length }));
+  const maxEvidence = Math.max(1, ...capabilityStats().map((x) => x.evidence));
+  const trendLabel = { new: "新增", rising: "上升", stable: "持续", fading: "下降" };
+  const trendClass = { new: "p0", rising: "p1", stable: "status-done", fading: "p3" };
+  return `
+  <div class="card" style="margin-bottom:14px"><h2>情报概览</h2>
+    <div class="stat-grid">
+      <div class="metric"><b>${records.length}</b><span>结构化 JD</span></div>
+      <div class="metric"><b>${sources.length}</b><span>登记来源</span></div>
+      <div class="metric"><b>${sources.filter((s) => s.grade === "A").length}</b><span>A 级官网</span></div>
+      <div class="metric"><b>${leads.length}</b><span>待补线索</span></div>
+    </div>
+    <div class="chip-row" style="margin-top:10px">${statusCounts.map((s) => `<span class="chip static">${s.label} ${s.count}</span>`).join("")}</div>
+    <p class="glossary-hint">证据规则：A 官方一手；B 平台/结构化二手；C 面经线索；D 仅检索线索。未验证官网不标记为可访问，避免虚假健康状态。</p>
+  </div>
+
+  <div class="jd-intel-grid">
+    <div class="card"><h2>能力频次</h2>
+      ${capabilityStats().slice(0, 18).map((x) => `
+        <div class="capability-row">
+          <div class="capability-head"><span>${esc(x.capability)}</span><b>${x.jdCount} 个 JD / 权重 ${x.evidence}</b></div>
+          <div class="capability-bar"><i style="width:${Math.round((x.evidence / maxEvidence) * 100)}%"></i></div>
+        </div>`).join("")}
+      <p class="glossary-hint">权重按 A=3、B=2、C=1 计算；同一 JD 内重复标签只计一次。标签来自结构化 corpus，而不是对原文做不可追溯的关键词猜测。</p>
+    </div>
+    <div class="card"><h2>证据分级</h2>
+      ${gradeCounts.map((g) => `<div class="jd-item"><h3>${g.grade} · ${g.label} · ${g.count} 条</h3><p>${esc(g.rule)}</p><p class="glossary-hint">${esc(g.usage)}</p></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><h2>结构化 JD（当前领域）</h2>
+    ${records.map((r) => {
+      const src = sourceById(r.sourceId) || {};
+      return `<div class="jd-item">
+        <div class="node-title">${esc(r.company)} · ${esc(r.role)} ${badge(r.evidenceGrade + " 级", r.evidenceGrade === "A" ? "status-done" : "p2")} ${badge(trendLabel[r.trend] || r.trend, trendClass[r.trend] || "p3")} ${badge(r.capturedAt, "p3")}</div>
+        <div class="node-meta">${badge(r.city || "城市未记录", "p3")} ${badge(r.salary || "薪资未记录", "p3")} ${src.name ? badge(src.name, "jd") : ""}</div>
+        <div class="tag-cloud">${(r.skills || []).slice(0, 12).map((x) => badge(x, "layer")).join("")}</div>
+        <div class="node-meta"><b>关联知识点：</b>${(r.nodes || []).map((id) => badge(findNode(id) ? findNode(id).name : id, "p2")).join(" ")}</div>
+        ${r.url ? `<div class="source-note"><a class="table-link" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">岗位原文</a></div>` : ""}
+      </div>`;
+    }).join("") || `<div class="empty">暂无当前领域结构化 JD。</div>`}
+  </div>
+
+  <div class="card" style="margin-top:14px"><h2>待补线索</h2>
+    ${leads.map((r) => {
+      const src = sourceById(r.sourceId) || {};
+      return `<div class="source-row"><div><div class="source-name">${esc(r.company)} · ${esc(r.role)}</div><div class="source-meta">${badge(r.city, "p3")} ${badge(r.salary, "p3")} ${badge(src.name || r.sourceId, "jd")}</div><div class="source-note">${esc(r.nextAction)}</div></div><div class="source-actions">${r.url ? `<a class="table-link" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">详情</a>` : ""}</div></div>`;
+    }).join("") || `<div class="empty">暂无待补线索。</div>`}
+  </div>
+
+  <div class="card" style="margin-top:14px"><h2>岗位画像矩阵</h2>
+    <div class="matrix-wrap"><table class="matrix-table"><thead><tr><th>维度</th><th>AI 产品经理</th><th>具身智能 PM</th><th>共同表达</th></tr></thead>
+      <tbody>${data.coverageMatrix.map((x) => `<tr><td><b>${esc(x.dimension)}</b></td><td>${esc(x.ai)}</td><td>${esc(x.robotics)}</td><td>${esc(x.shared)}</td></tr>`).join("")}</tbody></table></div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><h2>来源健康（${sources.length} 个）</h2>
+    ${sources.map(renderSourceGroup).join("")}
+  </div>`;
+}
+
+function parseJDList(value) {
+  return String(value || "")
+    .split(/[,，、;；\n]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x, i, arr) => arr.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+}
+
+function detectJDSource(input) {
+  const text = String(input || "").toLowerCase();
+  if (!text) return "manual";
+  const source = jdIntelData().sources.find((s) =>
+    text.includes(s.id.toLowerCase()) ||
+    text.includes(s.name.toLowerCase()) ||
+    (s.url || "").toLowerCase().includes(text) ||
+    text.includes((s.url || "").replace(/^https?:\/\//, "").replace(/\/$/, "").toLowerCase())
+  );
+  return source ? source.id : "manual";
+}
+
+function inferJDCapabilities(text) {
+  const lower = String(text || "").toLowerCase();
+  return (jdIntelData().taxonomy[state.domain] || []).filter((term) => lower.includes(term.toLowerCase()));
+}
+
+function normalizeJDEntry(raw) {
+  const sourceId = raw.sourceId || detectJDSource(raw.sourceUrl || raw.source);
+  const source = sourceById(sourceId);
+  const inferred = inferJDCapabilities(raw.text || "");
+  const entered = parseJDList(raw.skills);
+  const skills = [...new Set([...entered, ...inferred])];
+  const evidenceGrade = raw.evidenceGrade || (source && source.grade) || "B";
+  const evidenceType = raw.evidenceType || (raw.image ? "screenshot" : "manual_text");
+  return {
+    id: raw.id || `jd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    company: raw.company || "",
+    role: raw.role || "",
+    city: raw.city || "",
+    salary: raw.salary || "",
+    source: raw.source || (source ? source.name : "手动录入"),
+    sourceId,
+    sourceUrl: safeHttpUrl(raw.sourceUrl),
+    evidenceType,
+    evidenceGrade,
+    capturedAt: raw.capturedAt || new Date().toISOString(),
+    date: (raw.capturedAt || new Date().toISOString()).slice(0, 10),
+    text: raw.text || "",
+    hardRequirements: parseJDList(raw.hardRequirements),
+    niceToHave: parseJDList(raw.niceToHave),
+    skills,
+    tools: parseJDList(raw.tools),
+    scenarios: parseJDList(raw.scenarios),
+    metrics: parseJDList(raw.metrics),
+    status: raw.status || "pending",
+  };
+}
+
 function renderJD() {
   return `<div class="card" style="margin-bottom:14px"><h2>调研结论</h2><p>${esc(domain().jdSummary)}</p></div>
   <div class="card"><h2>代表岗位</h2>${domain().jds.map((j) => `
@@ -957,6 +1167,7 @@ function renderJDInbox() {
   const items = prog().jdInbox;
   const pending = items.filter((x) => x.status === "pending");
   const syncBadge = window.jdSynced === true ? badge("已同步 inbox/jd-inbox.json", "status-done") : window.jdSynced === false ? badge("离线模式：仅本地", "p1") : "";
+  const sourceOptions = jdIntelData().sources.filter((s) => s.domains.includes(state.domain));
   return `
   <div class="card" style="margin-bottom:14px">
     <h2>上传招聘页截图</h2>
@@ -973,8 +1184,29 @@ function renderJDInbox() {
           <div class="jd-fields">
             <input id="jd-company-${i}" placeholder="公司，如：京东" value="${esc(d.company || "")}">
             <input id="jd-role-${i}" placeholder="岗位，如：AI Agent 产品经理" value="${esc(d.role || "")}">
-            <input id="jd-source-${i}" placeholder="来源，如：BOSS直聘截图" value="${esc(d.source || "")}">
+            <input id="jd-city-${i}" placeholder="城市，如：北京" value="${esc(d.city || "")}">
+            <input id="jd-salary-${i}" placeholder="薪资，如：30-60k·16薪" value="${esc(d.salary || "")}">
+            <input id="jd-source-${i}" placeholder="来源名称，如：猎聘" value="${esc(d.source || "")}">
+            <select id="jd-source-id-${i}">
+              <option value="manual">来源待确认</option>
+              ${sourceOptions.map((s) => `<option value="${esc(s.id)}" ${d.sourceId === s.id ? "selected" : ""}>${esc(s.name)} · ${s.grade}级</option>`).join("")}
+            </select>
+            <input id="jd-source-url-${i}" placeholder="岗位/来源 URL（尽量填写）" value="${esc(d.sourceUrl || "")}">
+            <select id="jd-evidence-type-${i}">
+              ${[["screenshot", "页面截图"], ["structured_data", "结构化数据"], ["manual_text", "手工粘贴原文"], ["summary", "二手摘要"]].map(([v, label]) => `<option value="${v}" ${(d.evidenceType || (d.image ? "screenshot" : "manual_text")) === v ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+            <select id="jd-evidence-grade-${i}">
+              ${jdIntelData().evidencePolicy.map((g) => `<option value="${g.grade}" ${(d.evidenceGrade || "B") === g.grade ? "selected" : ""}>${g.grade} · ${g.label}</option>`).join("")}
+            </select>
           </div>
+        </div>
+        <div class="jd-form-grid">
+          <input id="jd-skills-${i}" placeholder="能力/技术，逗号分隔；留空自动识别" value="${esc((d.skills || []).join(", "))}">
+          <input id="jd-tools-${i}" placeholder="工具/框架，逗号分隔" value="${esc((d.tools || []).join(", "))}">
+          <input id="jd-scenarios-${i}" placeholder="产品场景，逗号分隔" value="${esc((d.scenarios || []).join(", "))}">
+          <input id="jd-metrics-${i}" placeholder="指标，如：任务成功率,MTTR" value="${esc((d.metrics || []).join(", "))}">
+          <input id="jd-hard-${i}" placeholder="硬性要求，逗号分隔" value="${esc((d.hardRequirements || []).join(", "))}">
+          <input id="jd-nice-${i}" placeholder="加分项，逗号分隔" value="${esc((d.niceToHave || []).join(", "))}">
         </div>
         <textarea id="jd-text-${i}" class="qa-textarea" placeholder="${d.image ? "OCR 识别中或完成后可在此修正..." : "粘贴 JD 正文..."}">${esc(d.text || "")}</textarea>
         <div class="quiz-actions">
@@ -994,12 +1226,16 @@ function renderJDInbox() {
         <button class="btn small primary" id="jdExport" title="把所有待处理 JD 生成 Markdown 文件，发给定时任务或智能体提炼知识点、更新课程">导出待处理 JD</button>
       </div>
     </div>
-    <p class="glossary-hint">数据来源：全部来自你在本页上传的截图（本地 OCR 识别）或手动粘贴的文本，仅保存在浏览器 localStorage，不经任何上传。「导出待处理 JD」会把状态为待处理的条目汇总成 Markdown 文件，用于交给定时任务或智能体提炼知识点并更新课程。</p>
+    <p class="glossary-hint">数据来源：全部来自你在本页上传的截图（本地 OCR 识别）或手动粘贴的文本，仅保存在浏览器 localStorage 和本地 inbox 文件，不经任何上传。保存时会保留原文、来源 URL、证据分级和结构化字段；能力标签可自动识别，也可人工修正。</p>
     ${items.length ? items.map((it, i) => `
       <div class="jd-item">
-        <div class="node-title">${esc(it.company || "未填公司")} · ${esc(it.role || "未填岗位")} ${badge(it.status === "pending" ? "待处理" : "已入库", it.status === "pending" ? "p0" : "status-done")} ${badge(it.date, "p3")}</div>
+        <div class="node-title">${esc(it.company || "未填公司")} · ${esc(it.role || "未填岗位")} ${badge(it.status === "pending" ? "待处理" : "已入库", it.status === "pending" ? "p0" : "status-done")} ${badge(it.evidenceGrade || "B", (it.evidenceGrade || "B") === "A" ? "status-done" : "p2")} ${badge(it.date, "p3")}</div>
+        <div class="node-meta">${badge(it.city || "城市未记录", "p3")} ${badge(it.salary || "薪资未记录", "p3")} ${badge((sourceById(it.sourceId) || {}).name || it.source || "来源待确认", "jd")}</div>
+        ${(it.skills || []).length ? `<div class="tag-cloud">${it.skills.map((x) => badge(x, "layer")).join("")}</div>` : ""}
+        ${(it.metrics || []).length ? `<div class="node-meta"><b>指标：</b>${it.metrics.map((x) => badge(x, "lvl")).join(" ")}</div>` : ""}
         <div class="quiz-a" style="display:none" id="jdi-${i}">${esc(it.text)}</div>
         <div class="quiz-actions">
+          ${it.sourceUrl ? `<a class="table-link" href="${esc(it.sourceUrl)}" target="_blank" rel="noopener noreferrer">来源原文</a>` : ""}
           <button class="btn small" data-jdi-toggle="${i}">查看全文</button>
           <button class="btn small" data-jdi-done="${i}">标记已入库</button>
           <button class="btn small" data-jdi-copy="${i}">复制全文</button>
@@ -1464,7 +1700,12 @@ function bindViewEvents() {
     window.jdDrafts = window.jdDrafts || [];
     for (const file of jdFile.files) {
       const image = await compressImage(file);
-      window.jdDrafts.push({ image, company: "", role: "", source: "截图上传", text: "", ocrState: "等待 OCR" });
+      window.jdDrafts.push({
+        image, company: "", role: "", city: "", salary: "", source: "截图上传", sourceId: "manual",
+        sourceUrl: "", evidenceType: "screenshot", evidenceGrade: "B", text: "",
+        hardRequirements: "", niceToHave: "", skills: "", tools: "", scenarios: "", metrics: "",
+        ocrState: "等待 OCR",
+      });
     }
     jdFile.value = "";
     renderJDInboxOnly();
@@ -1473,7 +1714,11 @@ function bindViewEvents() {
   const jdPaste = document.getElementById("jdPasteMode");
   if (jdPaste) jdPaste.addEventListener("click", () => {
     window.jdDrafts = window.jdDrafts || [];
-    window.jdDrafts.push({ image: null, company: "", role: "", source: "手动粘贴", text: "", ocrState: "" });
+    window.jdDrafts.push({
+      image: null, company: "", role: "", city: "", salary: "", source: "手动粘贴", sourceId: "manual",
+      sourceUrl: "", evidenceType: "manual_text", evidenceGrade: "B", text: "",
+      hardRequirements: "", niceToHave: "", skills: "", tools: "", scenarios: "", metrics: "", ocrState: "",
+    });
     renderJDInboxOnly();
   });
   document.querySelectorAll("[data-ocr]").forEach((btn) => {
@@ -1486,16 +1731,27 @@ function bindViewEvents() {
     btn.addEventListener("click", () => {
       const i = Number(btn.dataset.jdSave);
       const d = window.jdDrafts[i];
-      const entry = {
-        id: `jd-${Date.now()}-${i}`,
+      const entry = normalizeJDEntry({
+        ...d,
         company: document.getElementById(`jd-company-${i}`).value.trim(),
         role: document.getElementById(`jd-role-${i}`).value.trim(),
+        city: document.getElementById(`jd-city-${i}`).value.trim(),
+        salary: document.getElementById(`jd-salary-${i}`).value.trim(),
         source: document.getElementById(`jd-source-${i}`).value.trim(),
+        sourceId: document.getElementById(`jd-source-id-${i}`).value,
+        sourceUrl: document.getElementById(`jd-source-url-${i}`).value.trim(),
+        evidenceType: document.getElementById(`jd-evidence-type-${i}`).value,
+        evidenceGrade: document.getElementById(`jd-evidence-grade-${i}`).value,
+        hardRequirements: document.getElementById(`jd-hard-${i}`).value,
+        niceToHave: document.getElementById(`jd-nice-${i}`).value,
+        skills: document.getElementById(`jd-skills-${i}`).value,
+        tools: document.getElementById(`jd-tools-${i}`).value,
+        scenarios: document.getElementById(`jd-scenarios-${i}`).value,
+        metrics: document.getElementById(`jd-metrics-${i}`).value,
         text: document.getElementById(`jd-text-${i}`).value.trim(),
-        date: new Date().toISOString().slice(0, 10),
-        status: "pending",
-      };
+      });
       if (!entry.text) { toast("请先识别或粘贴 JD 文本"); return; }
+      if (d.sourceUrl && !entry.sourceUrl) { toast("来源 URL 必须以 http:// 或 https:// 开头"); return; }
       prog().jdInbox.push(entry);
       try { saveState(); } catch (e) { toast("保存失败：本地存储空间不足，请删除旧素材后重试"); return; }
       window.jdDrafts.splice(i, 1);
@@ -1508,7 +1764,27 @@ function bindViewEvents() {
   if (jdExport) jdExport.addEventListener("click", () => {
     const pending = prog().jdInbox.filter((x) => x.status === "pending");
     if (!pending.length) { toast("没有待处理的 JD"); return; }
-    const md = pending.map((x) => `## ${x.company || "未填公司"} · ${x.role || "未填岗位"}\n来源：${x.source} | 日期：${x.date}\n\n${x.text}`).join("\n\n---\n\n");
+    const md = pending.map((x) => {
+      const source = sourceById(x.sourceId) || {};
+      const meta = [
+        `来源：${x.source || source.name || "未记录"}`,
+        `日期：${x.date || (x.capturedAt || "").slice(0, 10)}`,
+        `城市：${x.city || "未记录"}`,
+        `薪资：${x.salary || "未记录"}`,
+        `证据等级：${x.evidenceGrade || "B"}`,
+        `证据类型：${x.evidenceType || "manual_text"}`,
+        `来源 URL：${x.sourceUrl || "未记录"}`,
+      ].join(" | ");
+      const fields = [
+        `硬性要求：${(x.hardRequirements || []).join("、") || "未记录"}`,
+        `加分项：${(x.niceToHave || []).join("、") || "未记录"}`,
+        `能力：${(x.skills || []).join("、") || "未记录"}`,
+        `工具：${(x.tools || []).join("、") || "未记录"}`,
+        `场景：${(x.scenarios || []).join("、") || "未记录"}`,
+        `指标：${(x.metrics || []).join("、") || "未记录"}`,
+      ].join("\n");
+      return `## ${x.company || "未填公司"} · ${x.role || "未填岗位"}\n${meta}\n\n${fields}\n\n### 原文\n${x.text}`;
+    }).join("\n\n---\n\n");
     downloadBlob(new Blob([md], { type: "text/markdown;charset=utf-8" }), `待处理JD-${new Date().toISOString().slice(0, 10)}.md`);
   });
   document.querySelectorAll("[data-jdi-toggle]").forEach((btn) => {
@@ -1538,6 +1814,12 @@ function bindViewEvents() {
   if (currentView === "jdInbox" && !window.jdLoaded) {
     window.jdLoaded = true;
     loadJDInbox().then(() => renderJDInboxOnly());
+  }
+  if (currentView === "jdIntel" && !window.jdSourceHealthLoaded) {
+    window.jdSourceHealthLoaded = true;
+    loadSourceHealth().then(() => {
+      if (currentView === "jdIntel") render();
+    });
   }
   document.querySelectorAll(".module-head").forEach((head) => {
     head.addEventListener("click", (e) => {
